@@ -113,7 +113,53 @@ class receptionist:
         _thread.start_new_thread( text_to_speech, ("task begin!",) )
         #nav
         self.goto(0,0,0)
-        
+        （第一个人）
+
+# 导航到门口
+
+# 机械臂开门
+
+# 只识别一个人                                       -------------------（TODO）
+
+# hi, what is your name and your favorate drink 
+#  ~<the answer>
+
+# follow me if possible, behind my body
+
+# 导航到客厅
+
+# 到客厅
+# 语音：please stand on my right side
+
+
+# i will point to a seat you can take 
+
+# 转向空座位
+
+# 机械臂向前指   3s 收回
+
+# （第二个人）
+
+# 导航到门口
+
+# 机械臂开门
+
+# hi, what is your name and your favorate drink 
+#  ~<the answer>
+
+# follow me if possible, behind my body
+
+# 导航到客厅
+
+# dear sb. they are < >， and their favorate drink are <>
+# dear sb. and sb.  , this is <> , and he (or her)favorate drink is <>
+
+# (Naming at least 4 characteristics of the first guest to the second guest)
+
+# i will point to a seat you can take 
+
+# 机械臂向前指   3s 收回
+
         pass
 # ----------Voice-------------------------------------------------------------------------
 def text_to_speech(self,text):
