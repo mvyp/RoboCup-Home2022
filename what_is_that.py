@@ -29,13 +29,13 @@ if len(things) > len(color_list):
 predictor = init()
 
 show_name = 'First_test'
-cv2.namedWindow(show_name, 0)
 
 class Follower():
     def __init__(self):
         rospy.init_node("follower")
         #
         self.robotstate= False
+        self.trigger=False
         self.bridge = CvBridge()
         self.tmp_point_thing = []   # 储存历史指向数据,用于判断是否播放语音
         self.play_threshold = 5    # 进过 play_threshold 次判断都是同意指向,才进行播报
@@ -119,6 +119,7 @@ class Follower():
         
         if right_arm<-0.25 or left_arm<-0.25:
             self.robotstate=True
+            self.trigger=True
         
         if stop_1<0.07 or stop_2<0.07:
             
@@ -179,7 +180,7 @@ class Follower():
 
 
         
-    def deal_img(self,img_raw, conf_thres=0.5, is_show=True, show_name='test', save_video_path=None):
+    def deal_img(self,img_raw, conf_thres=0.5, is_show=True, show_name='First_test', save_video_path=None):
 
         """
         这个函数 调用了 手指关键点识别
@@ -188,11 +189,8 @@ class Follower():
         判断出哪个目标物是被指着的
         判断得到结果再对指定目标物进行可视化（画框）
         """
-        print("1")
-        cv2.namedWindow(show_name, 0)#TODO
-        print("1")
-        # print()
-        # print(100 * '=')
+
+
         img, is_body, out_point = get_body_state(img_raw, is_draw=True)  # 手指关键点识别，得到处理后的图像以及手指状态
 
         point_thing = None
@@ -256,6 +254,7 @@ class Follower():
                             print(toward_state['lables'][i])
 
         if is_show:
+            cv2.namedWindow(show_name, 0)
             cv2.imshow(show_name, img)
             cv2.waitKey(15)
         return img, point_thing, point_thing_pts
@@ -264,38 +263,39 @@ class Follower():
 
 
     def img_callback(self, img_msg):
-        try:
-            frame = self.bridge.imgmsg_to_cv2(img_msg, "bgr8")
-        except CvBridgeError as e:
-            print (e)
-        img, point_thing, point_thing_pts = self.deal_img(frame, conf_thres=0.55, is_show=False, show_name='First_test')  # 调用上面的逻辑推理函数
+        if(self.robotstate == False and self.trigger):
+            try:
+                frame = self.bridge.imgmsg_to_cv2(img_msg, "bgr8")
+            except CvBridgeError as e:
+                print (e)
+            img, point_thing, point_thing_pts = self.deal_img(frame, conf_thres=0.55, is_show=True, show_name='First_test')  # 调用上面的逻辑推理函数
 
-        #　将point_thing发布出去
-        self.pub.publish(point_thing)
+            #　将point_thing发布出去
+            self.pub.publish(point_thing)
 
-        if point_thing_pts is not None:
-            self.pub_pts.publish(str(point_thing_pts))
+            if point_thing_pts is not None:
+                self.pub_pts.publish(str(point_thing_pts))
 
 
 
-        self.tmp_point_thing.insert(0, point_thing)  # 记录结果,并且放在最前面
-        # print(tmp_point_thing)        print("hi")
+            self.tmp_point_thing.insert(0, point_thing)  # 记录结果,并且放在最前面
+            # print(tmp_point_thing)        print("hi")
 
-        if len(self.tmp_point_thing) == self.play_threshold:  # 记录满了.开始判断
-            judgment_num = len(Counter(self.tmp_point_thing))  # 统计结果中的类别数
-            if judgment_num == 1 and (point_thing in things):
-                # print('========================================= play' + str(point_thing))
-                self.tmp_point_thing.pop()
+            if len(self.tmp_point_thing) == self.play_threshold:  # 记录满了.开始判断
+                judgment_num = len(Counter(self.tmp_point_thing))  # 统计结果中的类别数
+                if judgment_num == 1 and (point_thing in things):
+                    # print('========================================= play' + str(point_thing))
+                    self.tmp_point_thing.pop()
 
-                temp_now = time.time()
-                # print(round(temp_now - temp_t, 3))
+                    temp_now = time.time()
+                    # print(round(temp_now - temp_t, 3))
 
-                if temp_now  > self.time_threshold:
-                    voice("this is {}".format(point_thing))
-            else:
-                self.tmp_point_thing.pop()  #  不能的话就 丢弃末尾一个
-        print("recieve img")
-        cv2.imshow(show_name, img)#TODO
+                    if temp_now  > self.time_threshold:
+                        voice("this is {}".format(point_thing))
+                else:
+                    self.tmp_point_thing.pop()  #  不能的话就 丢弃末尾一个
+
+
 
         
 def voice (word):
