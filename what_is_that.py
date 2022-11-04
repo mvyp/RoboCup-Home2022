@@ -1,9 +1,8 @@
-#!/usr/bin/env python3
-
+print('loading model')
 import rospy
 import sys
 import _thread
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool,String
 from roslib import message
 from sensor_msgs import point_cloud2
 from sensor_msgs.msg import PointCloud2
@@ -11,15 +10,39 @@ from geometry_msgs.msg import Twist
 from math import copysign
 from visualization_msgs.msg import MarkerArray
 import azure.cognitiveservices.speech as speechsdk
+from sensor_msgs.msg import Image
 
+from cv_bridge import CvBridge, CvBridgeError
 
+from collections import Counter   # 用于统计
+import time
+import subprocess
+
+from tool import *
+from yolo_tool import *
+
+things = ['apple', 'Bottle']
+color_list = [(100, 0, 230), (100, 0, 0), (10,30, 20), (234, 34, 2), (23,4, 244), (24, 0, 23), (200, 100, 0), (250, 0, 0)]
+if len(things) > len(color_list):
+    print('请补充颜色个数,目前识别物类别过多')
+    sys.exit()
+predictor = init()
+
+show_name = 'First_test'
+cv2.namedWindow(show_name, 0)
 
 class Follower():
     def __init__(self):
         rospy.init_node("follower")
         #
         self.robotstate= False
+        self.bridge = CvBridge()
+        self.tmp_point_thing = []   # 储存历史指向数据,用于判断是否播放语音
+        self.play_threshold = 5    # 进过 play_threshold 次判断都是同意指向,才进行播报
+        self.time_threshold = 3    # 至少间隔  几秒 才可播放一次
+        self.temp_t = 0
         
+
         # Set the shutdown function (stop the robot)
         rospy.on_shutdown(self.shutdown)
         
@@ -64,8 +87,11 @@ class Follower():
         # Publisher to control the robot's movement
         self.cmd_vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=5)
         self.shutdown_apf_pub = rospy.Publisher('/apf_shutdown', Bool, queue_size=5)
+        self.pub = rospy.Publisher('thing_pointed', String, queue_size=10)
+        self.pub_pts = rospy.Publisher('thing_pointed_pts', String, queue_size=10)
         # Subscribe to the point cloud
         self.marker_subscriber = rospy.Subscriber('/body_tracking_data', MarkerArray, self.set_cmd_vel, queue_size=1)
+        self.image_sub = rospy.Subscriber("/rgb/image_raw", Image, self.img_callback, queue_size=1)
 
 
         rospy.loginfo("Ready to follow!")
@@ -96,7 +122,7 @@ class Follower():
         
         if stop_1<0.07 or stop_2<0.07:
             
-            
+            self.tmp_point_thing = []
             self.robotstate=False
             temp = Bool()
             temp.data=True
@@ -146,11 +172,131 @@ class Follower():
     def shutdown(self):
         rospy.loginfo("Stopping the robot...")
         # Unregister the subscriber to stop cmd_vel publishing
-        #self.marker_subscriber.unregister()
         
         # Send an emtpy Twist message to stop the robot
         self.cmd_vel_pub.publish(Twist())
-        rospy.sleep(1)        
+        rospy.sleep(1)   
+
+
+        
+    def deal_img(self,img_raw, conf_thres=0.5, is_show=True, show_name='test', save_video_path=None):
+
+        """
+        这个函数 调用了 手指关键点识别
+        如果手指识别结果符合要求,那就进行调用yolo进行目标物检测
+        然后在结合手指识别结果和目标物识别结果进行数学判断
+        判断出哪个目标物是被指着的
+        判断得到结果再对指定目标物进行可视化（画框）
+        """
+        print("1")
+        cv2.namedWindow(show_name, 0)#TODO
+        print("1")
+        # print()
+        # print(100 * '=')
+        img, is_body, out_point = get_body_state(img_raw, is_draw=True)  # 手指关键点识别，得到处理后的图像以及手指状态
+
+        point_thing = None
+        point_thing_pts = None 
+
+        if is_body :  # 存在手 以及手指的状态是对的
+
+            finger_pt1 = out_point[1][1]  # 手掌
+            finger_pt2 = out_point[0][1]  # 手肘
+            # print(finger_pt1, finger_pt2)
+
+            # print(is_hand)
+            res = process_image(predictor, img_raw, conf_thres=conf_thres)  # 进行 目标物体识别，并返回检测到的物体信息
+            # print(res)
+
+            if len(res) > 0:  # 如果有检测到物体
+
+                # 开始进行数学判断，判断手指指向
+
+                toward_state = {'lables': [], 'score': []}
+                # 统计每个目标检测物的 被指分数score ，
+                for i in range(len(res)):
+                    pts = res[i]["pts"]
+                    bottom_pt = (int((pts[0] + pts[2]) / 2), int(pts[1]))
+                    center_pt = (int((pts[0] + pts[2]) / 2), int((pts[1] + pts[3]) / 2))
+
+                    """
+                    计算 手臂 的所在 向量 vec1, 以及 
+                    目标检测物 的中心、底部 与 手掌的连线vec2、vec3 的夹角 angle1、angle2
+                    将angle1、angle2进行加权融合, 作为这个目标检测物的被指分数, 分数越低, 说明它越有可能被手指指着。
+                    """
+                    vec1 = [finger_pt1[0], finger_pt1[1], finger_pt2[0], finger_pt2[1]]
+                    vec2 = [bottom_pt[0], bottom_pt[1], finger_pt1[0], finger_pt1[1]]
+                    vec3 = [center_pt[0], center_pt[1], finger_pt1[0], finger_pt1[1]]
+                    angle1 = get_angle_vectors(vec1, vec2)
+                    angle2 = get_angle_vectors(vec1, vec3)
+                    # print(res[i]["name"], 'bottom angle:', angle1, 'center angle:', angle2)
+
+                    score = round(0.5 * (angle1 + angle2) / 2 + 0.5 * np.min([angle1, angle2]), 3)
+
+                    toward_state['lables'].append(res[i]["name"])
+                    toward_state['score'].append(score)
+
+                # print('toward_state: ', toward_state)
+                id_to_draw = np.argmin(toward_state['score'])  # 找出被指分数最低的那一个，作为结果
+
+                # 对被指分数最低的那一个 进行 画框，输出 类型信息
+                # 在找到被指分数最低的要求下还有再要求被指分数低于某一个阈值，才作为最后的结果，这里我设置为45
+                if toward_state['score'][id_to_draw] < 30:
+                    for i in range(len(res)):
+                        if i == id_to_draw:
+
+                            thing_id = things.index(toward_state['lables'][i])
+                            color = color_list[thing_id]
+                            point_thing_pts = res[i]["pts"]  # pts = [xmin ymin xmax ymax]
+
+                            img = draw_box(img, res[i]["pts"], color=color)  # 这里是依据不同类别进行不同颜色的绘制
+                            res_txt = '==>' + toward_state['lables'][i]
+                            point_thing = toward_state['lables'][i]
+                            cv2.putText(img, res_txt, (5, 75), cv2.FONT_HERSHEY_SIMPLEX, 2, color, 4)
+                            print(toward_state['lables'][i])
+
+        if is_show:
+            cv2.imshow(show_name, img)
+            cv2.waitKey(15)
+        return img, point_thing, point_thing_pts
+
+
+
+
+    def img_callback(self, img_msg):
+        try:
+            frame = self.bridge.imgmsg_to_cv2(img_msg, "bgr8")
+        except CvBridgeError as e:
+            print (e)
+        img, point_thing, point_thing_pts = self.deal_img(frame, conf_thres=0.55, is_show=False, show_name='First_test')  # 调用上面的逻辑推理函数
+
+        #　将point_thing发布出去
+        self.pub.publish(point_thing)
+
+        if point_thing_pts is not None:
+            self.pub_pts.publish(str(point_thing_pts))
+
+
+
+        self.tmp_point_thing.insert(0, point_thing)  # 记录结果,并且放在最前面
+        # print(tmp_point_thing)        print("hi")
+
+        if len(self.tmp_point_thing) == self.play_threshold:  # 记录满了.开始判断
+            judgment_num = len(Counter(self.tmp_point_thing))  # 统计结果中的类别数
+            if judgment_num == 1 and (point_thing in things):
+                # print('========================================= play' + str(point_thing))
+                self.tmp_point_thing.pop()
+
+                temp_now = time.time()
+                # print(round(temp_now - temp_t, 3))
+
+                if temp_now  > self.time_threshold:
+                    voice("this is {}".format(point_thing))
+            else:
+                self.tmp_point_thing.pop()  #  不能的话就 丢弃末尾一个
+        print("recieve img")
+        cv2.imshow(show_name, img)#TODO
+
         
 def voice (word):
     global speech_synthesizer
