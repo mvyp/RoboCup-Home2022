@@ -111,45 +111,49 @@ class receptionist:
     def main(self):
         # say task begin
         _thread.start_new_thread( text_to_speech, ("task begin!",) )
-        #nav
+        # 导航到门口
         self.goto(0,0,0)
-        （第一个人）
+        #（第一个客人）
+        # 机械臂开门
 
-# 导航到门口
+        # 识别门口人的特征                                    
 
-# 机械臂开门
+        text_to_speech("hi, what is your name and your favorate drink ?")
+        #  ~<the answer>
+        guest1_answer=speech_to_text()
+        #process the answer TODO
+        text_to_speech("So, your name is {},and your favorate drink is {}.".format(guset1_name,guest1_drink))
+        text_to_speech("follow me if possible, behind my body")
+        
+        # 导航到客厅
+        self.goto(0,0,0)
+       
+        # 到客厅 TODO
+        text_to_speech("Please stand on my right side. And I will point to a seat you can take.")
 
-# 只识别一个人                                       -------------------（TODO）
+        # 转向空座位
 
-# hi, what is your name and your favorate drink 
-#  ~<the answer>
+        # 机械臂向前指   3s 收回
+        
+        text_to_speech("You can sit there.")
 
-# follow me if possible, behind my body
+        # （第二个人）
 
-# 导航到客厅
+        # 导航到门口
+        self.goto(0,0,0)
+        # 机械臂开门
 
-# 到客厅
-# 语音：please stand on my right side
+        # 识别门口人的特征                                    
 
+        text_to_speech("hi, what is your name and your favorate drink ?")
+        #  ~<the answer>
+        guest2_answer=speech_to_text()
+        #process the answer TODO
+        text_to_speech("So, your name is {},and your favorate drink is {}.".format(guset2_name,guest2_drink))
+        text_to_speech("follow me if possible, behind my body")
 
-# i will point to a seat you can take 
-
-# 转向空座位
-
-# 机械臂向前指   3s 收回
-
-# （第二个人）
-
-# 导航到门口
-
-# 机械臂开门
-
-# hi, what is your name and your favorate drink 
-#  ~<the answer>
-
-# follow me if possible, behind my body
-
-# 导航到客厅
+        # 导航到客厅
+        self.goto(0,0,0)
 
 # dear sb. they are < >， and their favorate drink are <>
 # dear sb. and sb.  , this is <> , and he (or her)favorate drink is <>
