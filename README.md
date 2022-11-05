@@ -5,6 +5,8 @@ base.py是一个任务流程大框架
 
 class中main函数为 任务流程
 
+主要看 mian 及 类的init
+
 添加新功能则写新函数
 
 导航去某一个点 self.goto(0,0,0)

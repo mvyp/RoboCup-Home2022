@@ -163,8 +163,7 @@ if __name__ == "__main__":
 
 
     
-    r = rospy.Rate(100)
-    r.sleep()
+    rospy.spin()
     receptionist_buct.main()
 #    for goal in goals:
 #        receptionist.goto(goal)

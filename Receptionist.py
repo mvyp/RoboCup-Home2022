@@ -4,12 +4,14 @@ import actionlib
 from actionlib_msgs.msg import *
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from nav_msgs.msg import Path
-from geometry_msgs.msg import PoseWithCovarianceStamped
+from geometry_msgs.msg import PoseWithCovarianceStamped, Twist
 from tf_conversions import transformations
 from math import pi
 import tf
 import _thread
 import azure.cognitiveservices.speech as speechsdk
+
+
 class receptionist:
     def __init__(self):
         #voice_init
@@ -21,6 +23,7 @@ class receptionist:
 
         #subsciber
         #publisher
+        self.cmd_vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=5)
         self.set_pose_pub = rospy.Publisher('/initialpose', PoseWithCovarianceStamped, queue_size=5)
         self.move_base = actionlib.SimpleActionClient("move_base", MoveBaseAction)
         self.move_base.wait_for_server(rospy.Duration(60))
@@ -29,6 +32,20 @@ class receptionist:
             self.tf_listener.waitForTransform('/map', '/base_link', rospy.Time(), rospy.Duration(1.0))
         except (tf.Exception, tf.ConnectivityException, tf.LookupException):
             return
+        
+        #variable TODO 
+        self.master_name = 'jack'
+        self.master_drink = 'orange'
+        self.master_cloth = 'unknow'
+        
+        self.guest1_name = 'unknow'
+        self.guest1_drink = 'unknow'
+        self.guest1_cloth= 'unknow'
+        
+        self.guest2_name = 'unknow'
+        self.guest2_drink = 'unknow'
+        self.guest2_cloth= 'unknow'
+        self.move_cmd = Twist()
 
 # ----------Navigation-------------------------------------------------------------------------
     def get_pos(self):
@@ -122,7 +139,7 @@ class receptionist:
         #  ~<the answer>
         guest1_answer=speech_to_text()
         #process the answer TODO
-        text_to_speech("So, your name is {},and your favorate drink is {}.".format(guset1_name,guest1_drink))
+        text_to_speech("So, your name is {},and your favorate drink is {}.".format(self.guest1_name,self.guest1_drink))
         text_to_speech("follow me if possible, behind my body")
         
         # 导航到客厅
@@ -149,22 +166,31 @@ class receptionist:
         #  ~<the answer>
         guest2_answer=speech_to_text()
         #process the answer TODO
-        text_to_speech("So, your name is {},and your favorate drink is {}.".format(guset2_name,guest2_drink))
+        text_to_speech("So, your name is {},and your favorate drink is {}.".format(self.guest2_name,self.guest2_drink))
         text_to_speech("follow me if possible, behind my body")
 
         # 导航到客厅
         self.goto(0,0,0)
+        
+        text_to_speech("Please stand on my right side.")
+        #转向右边
+        text_to_speech("dear {} ,they are {} and {} , and their favorate drink are {} and{}.".format(self.guest2_name, self.master_name, self.guest1_name, self.master_drink, self.guest1_drink  ))
+        
+        #转向大家 (Naming at least 4 characteristics of the first guest to the second guest)TODO 
 
-# dear sb. they are < >， and their favorate drink are <>
-# dear sb. and sb.  , this is <> , and he (or her)favorate drink is <>
+        text_to_speech("dear {} and {}  , this is {} , and his favorate drink is {}.".format(self.guest1_name, self.master_name, self.guest2_name, self.guest2_drink  ))
 
-# (Naming at least 4 characteristics of the first guest to the second guest)
+        text_to_speech(" I will point to a seat you can take.")
 
-# i will point to a seat you can take 
+        # 转向空座位
 
-# 机械臂向前指   3s 收回
+        # 机械臂向前指   3s 收回
+        
+        text_to_speech("You can sit there.")
 
         pass
+    
+    
 # ----------Voice-------------------------------------------------------------------------
 def text_to_speech(self,text):
     result = self.speech_synthesizer.speak_text_async(text).get()
@@ -210,13 +236,7 @@ if __name__ == "__main__":
     rospy.init_node('receptionist',anonymous=True)
 
     receptionist_buct = receptionist()
-
-
     
-    r = rospy.Rate(100)
-    r.sleep()
+    rospy.spin()
     receptionist_buct.main()
-#    for goal in goals:
-#        receptionist.goto(goal)
-#    while not rospy.is_shutdown():
-#        r.sleep()
+
