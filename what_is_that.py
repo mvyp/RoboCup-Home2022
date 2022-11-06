@@ -4,14 +4,12 @@ import sys
 import _thread
 from std_msgs.msg import Bool,String
 from roslib import message
-from sensor_msgs import point_cloud2
-from sensor_msgs.msg import PointCloud2
 from geometry_msgs.msg import Twist
 from math import copysign
 from visualization_msgs.msg import MarkerArray
 import azure.cognitiveservices.speech as speechsdk
 from sensor_msgs.msg import Image
-
+from pan_tilt_msgs.msg import PanTiltCmdDeg
 from cv_bridge import CvBridge, CvBridgeError
 
 from collections import Counter   # 用于统计
@@ -36,6 +34,7 @@ class Follower():
         #
         self.robotstate= False
         self.trigger=False
+        self.time_count=time.time()
         self.bridge = CvBridge()
         self.tmp_point_thing = []   # 储存历史指向数据,用于判断是否播放语音
         self.play_threshold = 5    # 进过 play_threshold 次判断都是同意指向,才进行播报
@@ -83,16 +82,22 @@ class Follower():
         
         # Initialize the movement command
         self.move_cmd = Twist()
-
         # Publisher to control the robot's movement
         self.cmd_vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=5)
         self.shutdown_apf_pub = rospy.Publisher('/apf_shutdown', Bool, queue_size=5)
-        self.pub = rospy.Publisher('thing_pointed', String, queue_size=10)
-        self.pub_pts = rospy.Publisher('thing_pointed_pts', String, queue_size=10)
+        self.pub = rospy.Publisher('/thing_pointed', String, queue_size=10)
+        self.pub_pts = rospy.Publisher('/thing_pointed_pts', String, queue_size=10)
+        self.pub_pan_tilt = rospy.Publisher('/pan_tilt_cmd_deg', PanTiltCmdDeg, queue_size=1)
         # Subscribe to the point cloud
         self.marker_subscriber = rospy.Subscriber('/body_tracking_data', MarkerArray, self.set_cmd_vel, queue_size=1)
         self.image_sub = rospy.Subscriber("/rgb/image_raw", Image, self.img_callback, queue_size=1)
-
+        
+        self.pan_tilt_down=PanTiltCmdDeg()       
+        self.pan_tilt_down.pitch=35.0
+        self.pan_tilt_down.speed=20
+        self.pan_tilt_up=PanTiltCmdDeg()
+        self.pan_tilt_up.pitch=0
+        self.pan_tilt_up.speed=20
 
         rospy.loginfo("Ready to follow!")
         try:
@@ -104,71 +109,80 @@ class Follower():
 
         
     def set_cmd_vel(self, msg):
-        # Check start position
-        #7: ELBOW_LEFT 8:WRIST_LEFT,18 12:SHOULDER_RIGHT 5: SHOULDER_LEFT
-        right_arm=(msg.markers[15].pose.position.y +msg.markers[14].pose.position.y)/2 - msg.markers[26].pose.position.y
-        left_arm=(msg.markers[8].pose.position.y +msg.markers[7].pose.position.y)/2 - msg.markers[26].pose.position.y
-        stop_1=abs(msg.markers[8].pose.position.x - msg.markers[12].pose.position.x)
-        stop_2=abs(msg.markers[15].pose.position.x - msg.markers[5].pose.position.x)
-        # print(right_arm)
-        # print(left_arm)
-        print(stop_1)
-        print(stop_2)
-        #print(msg.markers[1].pose.position.x)
-        print("--------------------------")
-        
-        if right_arm<-0.25 or left_arm<-0.25:
-            self.robotstate=True
-            self.trigger=True
-        
-        if stop_1<0.07 or stop_2<0.07:
+        if(msg!= MarkerArray()):
+            # Check start position
+            #7: ELBOW_LEFT 8:WRIST_LEFT,18 12:SHOULDER_RIGHT 5: SHOULDER_LEFT
+            stop_2=(msg.markers[15].pose.position.y +msg.markers[14].pose.position.y)/2 - msg.markers[26].pose.position.y
+            stop_1=(msg.markers[8].pose.position.y +msg.markers[7].pose.position.y)/2 - msg.markers[26].pose.position.y
+            left_arm=abs(msg.markers[8].pose.position.x - msg.markers[12].pose.position.x)
+            right_arm=abs(msg.markers[15].pose.position.x - msg.markers[5].pose.position.x)
+            # print(right_arm)
+            # print(left_arm)
+            #print(stop_1)
+            #print(stop_2)
+            #print(msg.markers[1].pose.position.x)
+            #print("--------------------------")
             
-            self.tmp_point_thing = []
-            self.robotstate=False
-            temp = Bool()
-            temp.data=True
+            if right_arm<-0.25 or left_arm<-0.25:
+                self.robotstate=True
+                self.trigger=True
+                now_time=time.time()
+                if(now_time- self.time_count >4):
+                    self.time_count = time.time()
+                    self.pub_pan_tilt.publish(self.pan_tilt_up)
+                    voice ("Moving.")
             
-            self.shutdown_apf_pub.publish(temp)
-            voice ("Stopping the robot.")
+            if stop_1<0.07 or stop_2<0.07:
+                
+                self.tmp_point_thing = []
+                self.robotstate=False
+                temp = Bool()
+                temp.data=True
+                self.shutdown_apf_pub.publish(temp)
+                now_time=time.time()
+                if(now_time- self.time_count >4):
+                    self.time_count = time.time()
+                    self.pub_pan_tilt.publish(self.pan_tilt_down)
+                    voice ("Stopping the robot.")
 
-            
-        # Initialize the centroid coordinates point count
-        x = y = z = n = 0
-        
-       # If we have points, compute the centroid coordinates
-        if self.robotstate and msg.markers[1].pose.position.z<1.5:
-            #z distance x leftright y updown
-            x = msg.markers[1].pose.position.x 
-            z = msg.markers[1].pose.position.z
-            
-            # Check our movement thresholds
-            if (abs(z - self.goal_z) > self.z_threshold):
-                # Compute the angular component of the movement
-                linear_speed = (z - self.goal_z) * self.z_scale
                 
-                # Make sure we meet our min/max specifications
-                self.move_cmd.linear.x = copysign(max(self.min_linear_speed, 
-                                        min(self.max_linear_speed, abs(linear_speed))), linear_speed)
+            # Initialize the centroid coordinates point count
+            x = y = z = n = 0
+            
+        # If we have points, compute the centroid coordinates
+            if self.robotstate and msg.markers[1].pose.position.z<1.5:
+                #z distance x leftright y updown
+                x = msg.markers[1].pose.position.x 
+                z = msg.markers[1].pose.position.z
+                
+                # Check our movement thresholds
+                if (abs(z - self.goal_z) > self.z_threshold):
+                    # Compute the angular component of the movement
+                    linear_speed = (z - self.goal_z) * self.z_scale
+                    
+                    # Make sure we meet our min/max specifications
+                    self.move_cmd.linear.x = copysign(max(self.min_linear_speed, 
+                                            min(self.max_linear_speed, abs(linear_speed))), linear_speed)
+                else:
+                    self.move_cmd.linear.x *= self.slow_down_factor
+                    
+                if (abs(x) > self.x_threshold):     
+                    # Compute the linear component of the movement
+                    angular_speed = -x * self.x_scale
+                    
+                    # Make sure we meet our min/max specifications
+                    self.move_cmd.angular.z = copysign(max(self.min_angular_speed, 
+                                            min(self.max_angular_speed, abs(angular_speed))), angular_speed)
+                else:
+                    # Stop the rotation smoothly
+                    self.move_cmd.angular.z *= self.slow_down_factor
+                    
             else:
+                # Stop the robot smoothly
                 self.move_cmd.linear.x *= self.slow_down_factor
-                
-            if (abs(x) > self.x_threshold):     
-                # Compute the linear component of the movement
-                angular_speed = -x * self.x_scale
-                
-                # Make sure we meet our min/max specifications
-                self.move_cmd.angular.z = copysign(max(self.min_angular_speed, 
-                                        min(self.max_angular_speed, abs(angular_speed))), angular_speed)
-            else:
-                # Stop the rotation smoothly
                 self.move_cmd.angular.z *= self.slow_down_factor
-                
-        else:
-            # Stop the robot smoothly
-            self.move_cmd.linear.x *= self.slow_down_factor
-            self.move_cmd.angular.z *= self.slow_down_factor
-        # Publish the movement command
-        self.cmd_vel_pub.publish(self.move_cmd)
+            # Publish the movement command
+            self.cmd_vel_pub.publish(self.move_cmd)
         
     def shutdown(self):
         rospy.loginfo("Stopping the robot...")
