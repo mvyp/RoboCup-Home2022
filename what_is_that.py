@@ -112,8 +112,10 @@ class Follower():
         if(msg!= MarkerArray()):
             # Check start position
             #7: ELBOW_LEFT 8:WRIST_LEFT,18 12:SHOULDER_RIGHT 5: SHOULDER_LEFT
-            stop_2=(msg.markers[15].pose.position.y +msg.markers[14].pose.position.y)/2 - msg.markers[26].pose.position.y
-            stop_1=(msg.markers[8].pose.position.y +msg.markers[7].pose.position.y)/2 - msg.markers[26].pose.position.y
+            stop_2y=(msg.markers[15].pose.position.y +msg.markers[14].pose.position.y)/2 - msg.markers[26].pose.position.y
+            stop_1y=(msg.markers[8].pose.position.y +msg.markers[7].pose.position.y)/2 - msg.markers[26].pose.position.y
+            stop_2x=(msg.markers[15].pose.position.x +msg.markers[14].pose.position.x)/2 - msg.markers[26].pose.position.x
+            stop_1x=(msg.markers[8].pose.position.x +msg.markers[7].pose.position.x)/2 - msg.markers[26].pose.position.x
             left_arm=abs(msg.markers[8].pose.position.x - msg.markers[12].pose.position.x)
             right_arm=abs(msg.markers[15].pose.position.x - msg.markers[5].pose.position.x)
             # print(right_arm)
@@ -132,7 +134,7 @@ class Follower():
                     self.pub_pan_tilt.publish(self.pan_tilt_up)
                     voice ("Moving.")
             
-            if stop_1<0.07 or stop_2<0.07:
+            if (stop_1y<0.07 and stop_1x) or (stop_2y<0.07 and stop2x <0.07):
                 
                 self.tmp_point_thing = []
                 self.robotstate=False
