@@ -152,6 +152,7 @@ class receptionist:
         text_to_speech("hi, what is your name and your favorate drink ?")
         #  ~<the answer>
         guest1_answer = speech_to_text()
+        self.guest1_name,self.guest1_drink= message_proc(guest1_answer)
         #process the answer TODO
         text_to_speech(
             "So, your name is {},and your favorate drink is {}.".format(
@@ -187,6 +188,7 @@ class receptionist:
         text_to_speech("hi, what is your name and your favorate drink ?")
         #  ~<the answer>
         guest2_answer = speech_to_text()
+        self.guest2_name,self.guest2_drink= message_proc(guest2_answer)
         #process the answer TODO
         text_to_speech(
             "So, your name is {},and your favorate drink is {}.".format(
@@ -256,7 +258,7 @@ def speech_to_text(self):
             print("Error details: {}".format(
                 cancellation_details.error_details))
     return result.text
-def message_proc(self,string):
+def message_proc(string):
     #string="My name is Hua and my favoriate drink is orange juice."
     more_string=1
     #print(string.split())
@@ -277,6 +279,7 @@ def message_proc(self,string):
         drink+=list2[list2.index("is")+2]
     drink =drink.strip('.')
     print("drink is "+drink)
+    return name,drink
 
 if __name__ == "__main__":
     #Voice init
