@@ -256,7 +256,27 @@ def speech_to_text(self):
             print("Error details: {}".format(
                 cancellation_details.error_details))
     return result.text
+def message_proc(self,string):
+    #string="My name is Hua and my favoriate drink is orange juice."
+    more_string=1
+    #print(string.split())
+    list=string.split()
 
+    name=list[list.index("is")+1]
+    print("name is "+name)
+
+    list2=list
+    del list2[list.index("is")]
+
+    drink = list2[list2.index("is")+1]
+    for i in drink:
+        if( i =="."):
+            more_string=0
+    if(more_string):
+        drink+=" "
+        drink+=list2[list2.index("is")+2]
+    drink =drink.strip('.')
+    print("drink is "+drink)
 
 if __name__ == "__main__":
     #Voice init
