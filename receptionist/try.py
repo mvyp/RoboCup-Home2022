@@ -5,6 +5,7 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 
 
+
 """
 调用 human_tools 里面的函数
 
@@ -32,11 +33,11 @@ if __name__ == "__main__":
     while 1:
         # 接受ros图片
         try:
-            rosImg = rospy.wait_for_message('/rgb/image_raw/compressed', Image)  # 获取相机节点的ros图像
+            rosImg = rospy.wait_for_message('/rgb/image_raw', Image)  # 获取相机节点的ros图像
         except:
             continue  # 如果没有图片就跳过这次循环,继续接受
         
-        frame = bridge_ros2cv(rosImg, 'bgr8')  # 转化img
+        frame = bridge_ros2cv.imgmsg_to_cv2(rosImg, 'bgr8')  # 转化img
 
         # 沙发是否有人检测
         is_people, seat_nmm, x, y, w, h = detect_show(frame)

@@ -1,8 +1,10 @@
+import cv2
 import cv2 as cv
 import requests
 from io import BytesIO
 import base64
 import PIL.Image
+cv2.namedWindow("result", 0)
 
 
 # 以后直接在这里改 沙发的值
@@ -49,6 +51,9 @@ def human_show(frame):                        # 人物特征检测函数
                       response.json()['person_info'][0]['attributes']['lower_wear']['name'])
                 print('年纪：', response.json()['person_info'][0]['attributes']['age']['name'])
                 print('眼镜：', response.json()['person_info'][0]['attributes']['glasses']['name'])
+                print('位置：', response.json()['person_info'][0]['location'])
+
+
             else:
                 print('当前无人')
         else:
@@ -89,6 +94,8 @@ def detect_show(img):                                                   # 人脸
 
     [x, y, w, h] = face[0] if is_people else [0, 0, 0, 0]     # 如果没有人的话就是0，0，0，0, 有人的话就是真实数值
     return is_people, seat_nmm, x, y, w, h
+    cv2.namedWindow('image', cv2.WINDOW_GUI_NORMAL)  
+    cv2.imshow('image', img) 
 
 
 # 可视化部分我就是注释掉了 并重写了个函数
@@ -104,6 +111,8 @@ def visual(img, seat_nmm, x, y, w, h):
         cv.putText(img, 'Seat', (OBJ_X, OBJ_Y+30), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv.LINE_AA)
     return img
 
+    #cv2.namedWindow('image', cv2.WINDOW_GUI_NORMAL)  
+    #cv2.imshow('image', img) 
     # cv.imshow('result', img)  # 将标注好的图片标注出来
 
 

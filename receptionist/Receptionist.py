@@ -24,30 +24,28 @@ from cv_bridge import CvBridge, CvBridgeError
 class receptionist:
 
     def __init__(self):
-        #Kinova
-        self.pub_cmd = rospy.Publisher('Command', String, queue_size=1)
-
-        #voice_init
-        speech_key, service_region = "80c72f7522eb4105aecaa9766104bd53", "eastus"
-        speech_config = speechsdk.SpeechConfig(subscription=speech_key,
-                                               region=service_region)
-        speech_recognizer = speechsdk.SpeechRecognizer(
-            speech_config=speech_config)
-        speech_config.speech_synthesis_voice_name = "en-US-AriaNeural"
-        speech_synthesizer = speechsdk.SpeechSynthesizer(
-            speech_config=speech_config)
+        # #voice_init
+        # speech_key, service_region = "80c72f7522eb4105aecaa9766104bd53", "eastus"
+        # speech_config = speechsdk.SpeechConfig(subscription=speech_key,
+        #                                        region=service_region)
+        # speech_recognizer = speechsdk.SpeechRecognizer(
+        #     speech_config=speech_config)
+        # speech_config.speech_synthesis_voice_name = "en-US-AriaNeural"
+        # speech_synthesizer = speechsdk.SpeechSynthesizer(
+        #     speech_config=speech_config)
 
         #subsciber
-        self.image_sub = rospy.Subscriber("/rgb/image_raw", Image, self.img_callback, queue_size=1)
+        self.image_sub = rospy.Subscriber("/rgb/image_raw", Image,  queue_size=1)#self.img_callback,
 
         #publisher
+        self.pub_cmd = rospy.Publisher('Command', String, queue_size=1)
         self.cmd_vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=5)
         self.set_pose_pub = rospy.Publisher('/initialpose',
                                             PoseWithCovarianceStamped,
                                             queue_size=5)
         self.move_base = actionlib.SimpleActionClient("move_base",
                                                       MoveBaseAction)
-        self.move_base.wait_for_server(rospy.Duration(60))
+        self.move_base.wait_for_server(rospy.Duration(10))
         self.tf_listener = tf.TransformListener()
         try:
             self.tf_listener.waitForTransform('/map',
@@ -56,7 +54,7 @@ class receptionist:
         except (tf.Exception, tf.ConnectivityException, tf.LookupException):
             return
 
-        #variable TODO
+        #variable 
         self.master_name = 'jack'
         self.master_drink = 'orange'
         self.master_cloth = 'unknow'
@@ -77,7 +75,7 @@ class receptionist:
         self.guest2_age = 'unknow'
         self.guest2_glass = 'unknow'
         self.guest2_sex = 'unknow'
-
+        print("hi")
         self.move_cmd = Twist()
         self.bridge_ros2cv = CvBridge()
 
@@ -215,23 +213,25 @@ class receptionist:
     #main part
     def main(self):
         # say task begin
-        _thread.start_new_thread(text_to_speech, ("task begin!", ))
+        text_to_speech("task begin!")
         # 导航到门口
-        self.goto(1.653, -0.451, -90)
+        # self.goto(1.653, -0.451, -90)
         #（第一个客人）
         # 机械臂开门
         self.pub_cmd.publish("Open_door")
         # 识别门口人的特征
         try:
-            rosImg = rospy.wait_for_message('/rgb/image_raw/compressed', Image)  # 获取相机节点的ros图像
+            rosImg = rospy.wait_for_message('/rgb/image_raw', Image)  # 获取相机节点的ros图像
         except:
-          print("cannot find picture")
-        
-        frame = self.bridge_ros2cv(rosImg, 'bgr8')  # 转化img
+            print("cannot find picture")
+        bridge_ros2cv = CvBridge()
+        frame = bridge_ros2cv.imgmsg_to_cv2(rosImg, 'bgr8')  # 转化img
+
         self.guest1_upper_cloth,self.guest1_lower_cloth, self.guest1_glass,self.guest1_sex,loc=self.human_show(frame)
-        
         text_to_speech("hi, what is your name and your favorate drink ?")
         #  ~<the answer>
+        print("speak")
+
         guest1_answer = speech_to_text()
         print(guest1_answer)
         self.guest1_name,self.guest1_drink= message_proc(guest1_answer)
@@ -240,75 +240,75 @@ class receptionist:
                 self.guest1_name, self.guest1_drink))
         text_to_speech("follow me if possible, behind my body")
 
-        # 导航到客厅
-        self.goto(0, 0, 0)
+        # # 导航到客厅
+        # self.goto(0, 0, 0)
 
-        # 到客厅 TODO
-        text_to_speech(
-            "Please stand on my right side. And I will point to a seat you can take."
-        )
+        # # 到客厅 TODO
+        # text_to_speech(
+        #     "Please stand on my right side. And I will point to a seat you can take."
+        # )
 
-        # 转向空座位
+        # # 转向空座位
 
-        # 机械臂向前指   3s 收回
-        self.pub_cmd.publish("Front")
-        #3s 收回
-        rospy.sleep(3)
-        self.pub_cmd.publish("Wait")
+        # # 机械臂向前指   3s 收回
+        # self.pub_cmd.publish("Front")
+        # #3s 收回
+        # rospy.sleep(3)
+        # self.pub_cmd.publish("Wait")
 
-        text_to_speech("You can sit there.")
+        # text_to_speech("You can sit there.")
 
-        # （第二个人）
+        # # （第二个人）
 
-        # 导航到门口
-        self.goto(0, 0, 0)
-        # 机械臂开门
-        self.pub_cmd.publish("Open_door")
-        # 识别门口人的特征
-        self.guest2_upper_cloth,self.guest2_lower_cloth, self.guest2_glass,self.guest2_sex,loc=self.human_show()
+        # # 导航到门口
+        # self.goto(0, 0, 0)
+        # # 机械臂开门
+        # self.pub_cmd.publish("Open_door")
+        # # 识别门口人的特征
+        # self.guest2_upper_cloth,self.guest2_lower_cloth, self.guest2_glass,self.guest2_sex,loc=self.human_show()
 
-        text_to_speech("hi, what is your name and your favorate drink ?")
-        #  ~<the answer>
-        guest2_answer = speech_to_text()
-        self.guest2_name,self.guest2_drink= message_proc(guest2_answer)
-        #process the answer TODO
-        text_to_speech(
-            "So, your name is {},and your favorate drink is {}.".format(
-                self.guest2_name, self.guest2_drink))
-        text_to_speech("follow me if possible, behind my body")
+        # text_to_speech("hi, what is your name and your favorate drink ?")
+        # #  ~<the answer>
+        # guest2_answer = speech_to_text()
+        # self.guest2_name,self.guest2_drink= message_proc(guest2_answer)
+        # #process the answer TODO
+        # text_to_speech(
+        #     "So, your name is {},and your favorate drink is {}.".format(
+        #         self.guest2_name, self.guest2_drink))
+        # text_to_speech("follow me if possible, behind my body")
 
-        # 导航到客厅
-        self.goto(0, 0, 0)
+        # # 导航到客厅
+        # self.goto(0, 0, 0)
 
-        text_to_speech("Please stand on my right side.")
-        #转向右边
-        text_to_speech(
-            "dear {} ,they are {} and {} , and their favorate drink are {} and{}."
-            .format(self.guest2_name, self.master_name, self.guest1_name,
-                    self.master_drink, self.guest1_drink))
+        # text_to_speech("Please stand on my right side.")
+        # #转向右边
+        # text_to_speech(
+        #     "dear {} ,they are {} and {} , and their favorate drink are {} and{}."
+        #     .format(self.guest2_name, self.master_name, self.guest1_name,
+        #             self.master_drink, self.guest1_drink))
 
-        #转向大家 (Naming at least 4 characteristics of the first guest to the second guest)TODO
+        # #转向大家 (Naming at least 4 characteristics of the first guest to the second guest)TODO
 
-        text_to_speech(
-            "dear {} and {}  , this is {} , and his favorate drink is {}.".
-            format(self.guest1_name, self.master_name, self.guest2_name,
-                   self.guest2_drink))
+        # text_to_speech(
+        #     "dear {} and {}  , this is {} , and his favorate drink is {}.".
+        #     format(self.guest1_name, self.master_name, self.guest2_name,
+        #            self.guest2_drink))
 
-        text_to_speech(" I will point to a seat you can take.")
+        # text_to_speech(" I will point to a seat you can take.")
 
-        # 转向空座位
+        # # 转向空座位
 
-        # 机械臂向前指   3s 收回
-        self.pub_cmd.publish("Front")
-        #3s 收回
-        rospy.sleep(3)
-        self.pub_cmd.publish("Wait")
-        text_to_speech("You can sit there.")
+        # # 机械臂向前指   3s 收回
+        # self.pub_cmd.publish("Front")
+        # #3s 收回
+        # rospy.sleep(3)
+        # self.pub_cmd.publish("Wait")
+        # text_to_speech("You can sit there.")
 
 
 # ----------Voice-------------------------------------------------------------------------
-def text_to_speech(self, text):
-    result = self.speech_synthesizer.speak_text_async(text).get()
+def text_to_speech(text):
+    result = speech_synthesizer.speak_text_async(text).get()
 
     if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
         print("Speech synthesized to speaker for text [{}]".format(text))
@@ -323,8 +323,8 @@ def text_to_speech(self, text):
         print("Did you update the subscription info?")
 
 
-def speech_to_text(self):
-    result = self.speech_recognizer.recognize_once()
+def speech_to_text():
+    result = speech_recognizer.recognize_once()
 
     # Checks result.
     if result.reason == speechsdk.ResultReason.RecognizedSpeech:
@@ -368,13 +368,19 @@ if __name__ == "__main__":
     speech_key, service_region = "80c72f7522eb4105aecaa9766104bd53", "eastus"
     speech_config = speechsdk.SpeechConfig(subscription=speech_key,
                                            region=service_region)
+    speech_recognizer = speechsdk.SpeechRecognizer(
+            speech_config=speech_config)
     speech_config.speech_synthesis_voice_name = "en-US-AriaNeural"
     speech_synthesizer = speechsdk.SpeechSynthesizer(
         speech_config=speech_config)
+
+
+
+
     #ROS
     rospy.init_node('receptionist', anonymous=True)
-
     receptionist_buct = receptionist()
 
-    rospy.spin()
     receptionist_buct.main()
+    rospy.spin()
+
