@@ -160,77 +160,18 @@ class receptionist:
                 rospy.loginfo("reach goal %s succeeded!"%p)
         return True
 
-    # ----------Computer Vision---------------------------------------------------------------
-    # def img_callback(self,img_msg):
-    #     try:
-    #         self.frame = self.bridge.imgmsg_to_cv2(img_msg, "bgr8")
-    #     except CvBridgeError as e:
-    #         print (e)
-    def frame2base64(self,frame):                       # 将格式转换成base64格式函数
-        img = PIL.Image.fromarray(frame)               # 将每一帧转为Image
-        output_buffer = BytesIO()                  # 创建一个BytesIO
-        img.save(output_buffer, format='JPEG')     # 写入output_buffer
-        byte_data = output_buffer.getvalue()       # 在内存中读取
-        base64_data = base64.b64encode(byte_data)  # 转为BASE64
-        return base64_data                         # 转码成功 返回base64编码
-
-
-    def human_show(self,frame):                        # 人物特征检测函数
-        request_url = "https://aip.baidubce.com/rest/2.0/image-classify/v1/body_attr"
-        img = self.frame2base64(frame)                   # 载入数据
-
-        # 以下这一段是为了匹配相关数据头，固定格式，无需更改
-        params = {"image": img}
-        access_token = '24.cbba6b2fdce77a40ab866cde8e0550f2.2592000.1670079955.282335-28234814'
-        request_url = request_url + "?access_token=" + access_token
-        headers = {'content-type': 'application/x-www-form-urlencoded'}
-        ########################################################
-
-        # print('send data to baidu')
-        response = requests.post(request_url, data=params, headers=headers)  # 读出API读回识别数据
-        
-        if response:                                                         # 如果回应就继续执行，说明API有响应
-            print('API已相应')
-            if 'person_num' in response.json():                              # 如果response.json()有person_num这个键值，说明响应正常无error响应（response.json()是一个字典里放了一个列表，列表里还有字典····）
-                print('数据正常')                                              # 这一段大家可以直接print(response.json())，查找自己想要的信息，然后打印
-                if response.json()['person_num'] != 0:                       # 如果有人才打印相关信息，即检测人数不为零（person_num键值对应的返回信息是图像中的人数）
-                    print('人数：', response.json()['person_num'])
-                    print('性别：', response.json()['person_info'][0]['attributes']['gender']['name'])
-                    print('上身：', response.json()['person_info'][0]['attributes']['upper_color']['name'], '色',
-                        response.json()['person_info'][0]['attributes']['upper_wear_fg']['name'])
-                    print('下身：', response.json()['person_info'][0]['attributes']['lower_color']['name'], '色',
-                        response.json()['person_info'][0]['attributes']['lower_wear']['name'])
-                    print('年纪：', response.json()['person_info'][0]['attributes']['age']['name'])
-                    print('眼镜：', response.json()['person_info'][0]['attributes']['glasses']['name'])
-                    print('位置：', response.json()['person_info'][0]['location'])
-                    return response.json()['person_info'][0]['attributes']['upper_color']['name'],response.json()['person_info'][0]['attributes']['lower_color']['name'],response.json()['person_info'][0]['attributes']['gender']['name'], response.json()['person_info'][0]['attributes']['glasses']['name'],response.json()['person_info'][0]['location']
-                else:
-                    print('当前无人')
-            else:
-                print('数据异常')
-        else:
-            print('API未响应') 
-
-
-
 
     #main part
     def main(self):
         # say task begin
         _thread.start_new_thread(text_to_speech, ("task begin!", ))
         # 导航到门口
-        self.goto(1.653, -0.451, -90)
+        self.goto([1.653, -0.451, -90])
         #（第一个客人）
         # 机械臂开门
         self.pub_cmd.publish("Open_door")
-        # 识别门口人的特征
-        try:
-            rosImg = rospy.wait_for_message('/rgb/image_raw/compressed', Image)  # 获取相机节点的ros图像
-        except:
-          print("cannot find picture")
-        
-        frame = self.bridge_ros2cv(rosImg, 'bgr8')  # 转化img
-        self.guest1_upper_cloth,self.guest1_lower_cloth, self.guest1_glass,self.guest1_sex,loc=self.human_show(frame)
+        rospy.sleep(60)
+        #TODO wait
         
         text_to_speech("hi, what is your name and your favorate drink ?")
         #  ~<the answer>
@@ -243,14 +184,14 @@ class receptionist:
         text_to_speech("follow me if possible, behind my body")
 
         # 导航到客厅
-        self.goto(0, 0, 0)
+        self.goto([0, 0, 0])
 
         # 到客厅 TODO
         text_to_speech(
             "Please stand on my right side. And I will point to a seat you can take."
         )
-
-        # 转向空座位
+       
+        # 转向空座位TODO 
 
         # 机械臂向前指   3s 收回
         self.pub_cmd.publish("Front")
@@ -263,11 +204,10 @@ class receptionist:
         # （第二个人）
 
         # 导航到门口
-        self.goto(0, 0, 0)
+        self.goto([0, 0, 0])
         # 机械臂开门
         self.pub_cmd.publish("Open_door")
         # 识别门口人的特征
-        self.guest2_upper_cloth,self.guest2_lower_cloth, self.guest2_glass,self.guest2_sex,loc=self.human_show()
 
         text_to_speech("hi, what is your name and your favorate drink ?")
         #  ~<the answer>
@@ -289,10 +229,9 @@ class receptionist:
             .format(self.guest2_name, self.master_name, self.guest1_name,
                     self.master_drink, self.guest1_drink))
 
-        #转向大家 (Naming at least 4 characteristics of the first guest to the second guest)TODO
 
         text_to_speech(
-            "dear {} and {}  , this is {} , and his favorate drink is {}.".
+            "dear {} and {}  , this is {} , and favorate drink is {}.".
             format(self.guest1_name, self.master_name, self.guest2_name,
                    self.guest2_drink))
 

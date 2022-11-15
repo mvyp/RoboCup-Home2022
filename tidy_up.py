@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 import rospy
+import tf_conversions
+import tf2_ros
+
 import actionlib
 from actionlib_msgs.msg import *
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
@@ -18,7 +21,10 @@ class receptionist:
         speech_recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config)
         speech_config.speech_synthesis_voice_name = "en-US-AriaNeural"
         speech_synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config)
-
+        self.tfBuffer = tf2_ros.Buffer()
+        self.listener = tf2_ros.TransformListener(self.tfBuffer)
+        self.object_list=['water','bottle']
+        self.find_object= False
         #subsciber
         #publisher
         self.set_pose_pub = rospy.Publisher('/initialpose', PoseWithCovarianceStamped, queue_size=5)
@@ -29,7 +35,6 @@ class receptionist:
             self.tf_listener.waitForTransform('/map', '/base_link', rospy.Time(), rospy.Duration(1.0))
         except (tf.Exception, tf.ConnectivityException, tf.LookupException):
             return
-
 # ----------Navigation-------------------------------------------------------------------------
     def get_pos(self):
         try:
@@ -70,8 +75,20 @@ class receptionist:
         rospy.loginfo("navigation has be actived")
 
     def _feedback_cb(self, feedback):
-        #rospy.loginfo("[Navi] navigation feedback\r\n%s"%feedback)
-        pass
+        for i in self.object_list:
+            try:
+                trans = self.tfBuffer.lookup_transform("base_link", i, rospy.Time())
+                if(trans.transform.translation.z<0):
+                    self.cancel()
+                    find_object=1
+                    print("find the {}".format(i))
+                    break
+            except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+                pass
+        print(feedback)
+        
+
+
     def cancel(self):
         self.move_base.cancel_all_goals()
         return True
@@ -112,11 +129,28 @@ class receptionist:
     #main part
     def main(self):
         # say task begin
-        _thread.start_new_thread( text_to_speech, ("task begin!",) )
-        #nav
-        self.goto(0,0,0)
+        text_to_speech("hi, which room should I clean ?")
+        #  ~<the answer>
+        answer = speech_to_text()
+        room = message_proc(answer)
+        print(room)
+        if(room == 'kitchen'):
+            self.goto([0, 0, 0])
+        elif(room == 'kitchen'):
+            self.goto([0, 0, 0])
+        elif(room == 'kitchen'):
+            self.goto([0, 0, 0])
+        elif(room == 'kitchen'):
+            self.goto([0, 0, 0])
+
+
+
+
         
-        pass
+        while( not self.find_object):
+            pass    
+        
+        
 # ----------Voice-------------------------------------------------------------------------
 def text_to_speech(self,text):
     result = self.speech_synthesizer.speak_text_async(text).get()
@@ -145,7 +179,25 @@ def speech_to_text(self):
         if cancellation_details.reason == speechsdk.CancellationReason.Error:
             print("Error details: {}".format(cancellation_details.error_details))
     return result.text
+def message_proc(string):
+    #print(string.split())
+    list=string.split()
 
+    for i in list:
+        if(i=="living"):
+            room = 'living room'
+            break
+        elif(i=="bedroom"):
+            room = 'bedroom'
+            break
+        elif(i=="kitchen"):
+            room = 'kitchen'
+            break
+        elif(i=="TODO"):
+            room = 'TODO'
+            break
+
+    return room
 
 
 
