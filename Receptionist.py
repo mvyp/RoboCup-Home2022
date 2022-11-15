@@ -159,7 +159,6 @@ class receptionist:
             if state == GoalStatus.SUCCEEDED:
                 rospy.loginfo("reach goal %s succeeded!"%p)
         return True
-        return True
 
     # ----------Computer Vision---------------------------------------------------------------
     # def img_callback(self,img_msg):
