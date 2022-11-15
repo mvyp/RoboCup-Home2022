@@ -152,10 +152,13 @@ class receptionist:
                                  self._feedback_cb)
         result = self.move_base.wait_for_result(rospy.Duration(60))
         if not result:
-            self.move_base.canavigation_demo
+            self.move_base.cancel_goal()
+            rospy.loginfo("Timed out achieving goal")
+        else:
             state = self.move_base.get_state()
             if state == GoalStatus.SUCCEEDED:
-                rospy.loginfo("reach goal %s succeeded!" % p)
+                rospy.loginfo("reach goal %s succeeded!"%p)
+        return True
         return True
 
     # ----------Computer Vision---------------------------------------------------------------
