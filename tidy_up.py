@@ -2,35 +2,39 @@
 import rospy
 import tf_conversions
 import tf2_ros
-
+import math
 import actionlib
 from actionlib_msgs.msg import *
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from nav_msgs.msg import Path
+from std_msgs.msg import String
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from tf_conversions import transformations
+from geometry_msgs.msg import Twist
 from math import pi
 import tf
 import _thread
 import azure.cognitiveservices.speech as speechsdk
 class receptionist:
     def __init__(self):
-        #voice_init
-        speech_key, service_region = "80c72f7522eb4105aecaa9766104bd53", "eastus"
-        speech_config = speechsdk.SpeechConfig(subscription=speech_key, region=service_region)
-        speech_recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config)
-        speech_config.speech_synthesis_voice_name = "en-US-AriaNeural"
-        speech_synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config)
+     
         self.tfBuffer = tf2_ros.Buffer()
         self.listener = tf2_ros.TransformListener(self.tfBuffer)
         self.object_list=['water','bottle']
         self.find_object= False
+        self.arrive_object= False
         #subsciber
+        self.tf_listener = tf.TransformListener()
+        self.arm_listener = rospy.Subscriber("topic", String)
+        
+
+
         #publisher
         self.set_pose_pub = rospy.Publisher('/initialpose', PoseWithCovarianceStamped, queue_size=5)
         self.move_base = actionlib.SimpleActionClient("move_base", MoveBaseAction)
-        self.move_base.wait_for_server(rospy.Duration(60))
-        self.tf_listener = tf.TransformListener()
+        self.move_base.wait_for_server(rospy.Duration(30))
+        self.cmd_pub = rospy.Publisher('/cmd_vel', Twist,queue_size=10)
+
         try:
             self.tf_listener.waitForTransform('/map', '/base_link', rospy.Time(), rospy.Duration(1.0))
         except (tf.Exception, tf.ConnectivityException, tf.LookupException):
@@ -78,11 +82,26 @@ class receptionist:
         for i in self.object_list:
             try:
                 trans = self.tfBuffer.lookup_transform("base_link", i, rospy.Time())
-                if(trans.transform.translation.z<0):
+                if(trans.transform.translation.z<-0.05 and not self.find_object):
                     self.cancel()
-                    find_object=1
+                    self.find_object=True
                     print("find the {}".format(i))
+                    angle=to_euler_angles(feedback.base_position.pose.position.w,feedback.base_position.pose.position.x,feedback.base_position.pose.position.y,feedback.base_position.pose.position.z)
+                    object_positon = self.tfBuffer.lookup_transform("map", i, rospy.Time())
+                    self.goto([object_positon.transform.translation.x,object_positon.transform.translation.y,angle+math.atan2(trans.transform.translation.y,trans.transform.translation.x)])
                     break
+                if(trans.transform.translation.z<-0.05 and (math.sqrt(trans.transform.translation.x^2 +trans.transform.translation.y^2)<0.75)):
+                    cmd_msg=Twist()
+                    self.cmd_pub.publish(cmd_msg)
+                    self.cancel()
+                    if(abs(trans.transform.translation.y)<0.1):
+                        print("right position")
+                        break
+                    elif(trans.transform.translation.y<0.2 or trans.transform.translation.y>-0.2):
+                        cmd_msg.angular.z=trans.transform.translation.z
+                        self.cmd_pub.publish(cmd_msg)
+                        break
+                    #TODO
             except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
                 pass
         print(feedback)
@@ -135,25 +154,50 @@ class receptionist:
         room = message_proc(answer)
         print(room)
         if(room == 'kitchen'):
-            self.goto([0, 0, 0])
-        elif(room == 'kitchen'):
-            self.goto([0, 0, 0])
-        elif(room == 'kitchen'):
-            self.goto([0, 0, 0])
-        elif(room == 'kitchen'):
-            self.goto([0, 0, 0])
+            #first point
+            self.goto([0,0,0])
+            print("hhh")
+
+            if(self.arrive_object):
+                data = None
+                while data is None:
+                    try:
+                        data = rospy.wait_for_message("test", String, timeout=1)
+                    except:
+                        pass
+
+            #second point
+            self.find_object=0
+            self.goto([2,0,0])
+
+            if(self.arrive_object):
+                data = None
+                while data is None:
+                    try:
+                        data = rospy.wait_for_message("test", String, timeout=1)
+                    except:
+                        pass
+
+            #third point
+            self.find_object=0
+            result = self.goto([0,2,0])
+
+            if(self.arrive_object):
+                data = None
+                while data is None:
+                    try:
+                        data = rospy.wait_for_message("test", String, timeout=1)
+                    except:
+                        pass
+
+            if(result):
+                exit()
 
 
-
-
-        
-        while( not self.find_object):
-            pass    
-        
         
 # ----------Voice-------------------------------------------------------------------------
-def text_to_speech(self,text):
-    result = self.speech_synthesizer.speak_text_async(text).get()
+def text_to_speech(text):
+    result = speech_synthesizer.speak_text_async(text).get()
 
     if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
         print("Speech synthesized to speaker for text [{}]".format(text))
@@ -164,9 +208,9 @@ def text_to_speech(self,text):
             if cancellation_details.error_details:
                 print("Error details: {}".format(cancellation_details.error_details))
         print("Did you update the subscription info?")
-        
-def speech_to_text(self):
-    result = self.speech_recognizer.recognize_once()
+    
+def speech_to_text():
+    result = speech_recognizer.recognize_once()
 
     # Checks result.
     if result.reason == speechsdk.ResultReason.RecognizedSpeech:
@@ -198,6 +242,13 @@ def message_proc(string):
             break
 
     return room
+def to_euler_angles(w, x, y, z):
+    """w、x、y、z to euler angles"""
+    y = math.atan2(2*(w*z+x*y),1-2*(z*z+y*y))
+
+    yaw = y*180/math.pi
+
+    return yaw
 
 
 
@@ -210,6 +261,8 @@ if __name__ == "__main__":
     speech_config = speechsdk.SpeechConfig(subscription=speech_key, region=service_region)
     speech_config.speech_synthesis_voice_name = "en-US-AriaNeural"
     speech_synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config)
+    speech_recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config)
+
     #ROS 
     rospy.init_node('receptionist',anonymous=True)
 
