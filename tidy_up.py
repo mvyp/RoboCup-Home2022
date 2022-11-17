@@ -15,6 +15,7 @@ from math import pi
 import tf
 import _thread
 import azure.cognitiveservices.speech as speechsdk
+from pan_tilt_msgs.msg import PanTiltCmdDeg
 class receptionist:
     def __init__(self):
      
@@ -30,6 +31,8 @@ class receptionist:
 
 
         #publisher
+        self.pub_pan_tilt = rospy.Publisher('/pan_tilt_cmd_deg', PanTiltCmdDeg, queue_size=1)
+
         self.set_pose_pub = rospy.Publisher('/initialpose', PoseWithCovarianceStamped, queue_size=5)
         self.move_base = actionlib.SimpleActionClient("move_base", MoveBaseAction)
         self.move_base.wait_for_server(rospy.Duration(30))
@@ -39,6 +42,11 @@ class receptionist:
             self.tf_listener.waitForTransform('/map', '/base_link', rospy.Time(), rospy.Duration(1.0))
         except (tf.Exception, tf.ConnectivityException, tf.LookupException):
             return
+        self.pan_tilt_up=PanTiltCmdDeg()
+        self.pan_tilt_up.pitch=40
+        self.pan_tilt_up.speed=20
+        self.pub_pan_tilt.publish(self.pan_tilt_up)
+
 # ----------Navigation-------------------------------------------------------------------------
     def get_pos(self):
         try:
@@ -86,11 +94,11 @@ class receptionist:
                     self.cancel()
                     self.find_object=True
                     print("find the {}".format(i))
-                    angle=to_euler_angles(feedback.base_position.pose.position.w,feedback.base_position.pose.position.x,feedback.base_position.pose.position.y,feedback.base_position.pose.position.z)
+                    angle=to_euler_angles(feedback.base_position.pose.orientation.w,feedback.base_position.pose.orientation.x,feedback.base_position.pose.orientation.y,feedback.base_position.pose.orientation.z)
                     object_positon = self.tfBuffer.lookup_transform("map", i, rospy.Time())
                     self.goto([object_positon.transform.translation.x,object_positon.transform.translation.y,angle+math.atan2(trans.transform.translation.y,trans.transform.translation.x)])
                     break
-                if(trans.transform.translation.z<-0.05 and (math.sqrt(trans.transform.translation.x^2 +trans.transform.translation.y^2)<0.75)):
+                if(trans.transform.translation.z<-0.05 and (math.sqrt(math.pow(trans.transform.translation.x,2) +math.pow(trans.transform.translation.y,2))<0.75)):
                     cmd_msg=Twist()
                     self.cmd_pub.publish(cmd_msg)
                     self.cancel()
@@ -104,7 +112,6 @@ class receptionist:
                     #TODO
             except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
                 pass
-        print(feedback)
         
 
 
@@ -151,11 +158,11 @@ class receptionist:
         text_to_speech("hi, which room should I clean ?")
         #  ~<the answer>
         answer = speech_to_text()
-        room = message_proc(answer)
-        print(room)
-        if(room == 'kitchen'):
+        goroom = message_proc(answer)
+        print(goroom)
+        if(goroom == 'kitchen'):
             #first point
-            self.goto([0,0,0])
+            self.goto([1,3,0])
             print("hhh")
 
             if(self.arrive_object):
@@ -168,7 +175,7 @@ class receptionist:
 
             #second point
             self.find_object=0
-            self.goto([2,0,0])
+            self.goto([0,0,0])
 
             if(self.arrive_object):
                 data = None
@@ -178,20 +185,20 @@ class receptionist:
                     except:
                         pass
 
-            #third point
-            self.find_object=0
-            result = self.goto([0,2,0])
+            # #third point
+            # self.find_object=0
+            # result = self.goto([0,2,0])
 
-            if(self.arrive_object):
-                data = None
-                while data is None:
-                    try:
-                        data = rospy.wait_for_message("test", String, timeout=1)
-                    except:
-                        pass
+            # if(self.arrive_object):
+            #     data = None
+            #     while data is None:
+            #         try:
+            #             data = rospy.wait_for_message("test", String, timeout=1)
+            #         except:
+            #             pass
 
-            if(result):
-                exit()
+            # if(result):
+            #     exit()
 
 
         
@@ -229,15 +236,15 @@ def message_proc(string):
 
     for i in list:
         if(i=="living"):
-            room = 'living room'
+            room = 'living room.'
             break
-        elif(i=="bedroom"):
+        elif(i=="bedroom."):
             room = 'bedroom'
             break
-        elif(i=="kitchen"):
+        elif(i=="kitchen."):
             room = 'kitchen'
             break
-        elif(i=="TODO"):
+        elif(i=="TODO."):
             room = 'TODO'
             break
 
@@ -269,10 +276,7 @@ if __name__ == "__main__":
     receptionist_buct = receptionist()
 
 
-    
-    rospy.spin()
     receptionist_buct.main()
-#    for goal in goals:
-#        receptionist.goto(goal)
-#    while not rospy.is_shutdown():
-#        r.sleep()
+    print("s")
+
+    rospy.spin()

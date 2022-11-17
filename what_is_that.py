@@ -134,7 +134,7 @@ class Follower():
                     self.pub_pan_tilt.publish(self.pan_tilt_up)
                     voice ("Moving.")
             
-            if (stop_1y<0.07 and stop_1x) or (stop_2y<0.07 and stop2x <0.07):
+            if (stop_1y<0.07 and stop_1x) or (stop_2y<0.07 and stop_2y <0.07):
                 
                 self.tmp_point_thing = []
                 self.robotstate=False
