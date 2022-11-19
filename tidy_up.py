@@ -80,6 +80,19 @@ class receptionist:
 
     def _done_cb(self, status, result):
         rospy.loginfo("goal reached! ")
+        if(trans.transform.translation.z<-0.05 and (math.sqrt(math.pow(trans.transform.translation.x,2) +math.pow(trans.transform.translation.y,2))<0.75)):
+            cmd_msg=Twist()
+            self.cmd_pub.publish(cmd_msg)
+            self.cancel()
+            if(abs(trans.transform.translation.y)<0.1):
+                print("right position")
+                
+            elif(trans.transform.translation.y<0.2 or trans.transform.translation.y>-0.2):
+                cmd_msg.angular.z=trans.transform.translation.z
+                self.cmd_pub.publish(cmd_msg)
+                print("try to arrive the right position")
+                
+            self.arrive_object=1
 
     def _active_cb(self):
         rospy.loginfo("navigation has be actived")
@@ -108,7 +121,7 @@ class receptionist:
                         self.cmd_pub.publish(cmd_msg)
                         print("try to arrive the right position")
                         break
-                    #TODO
+                    self.arrive_object=1
             except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
                 pass
         
@@ -182,6 +195,7 @@ class receptionist:
 
             if(self.arrive_object):
                 data = None
+                print("??????????//")
                 while data is None:
                     try:
                         data = rospy.wait_for_message("test", String, timeout=1)
