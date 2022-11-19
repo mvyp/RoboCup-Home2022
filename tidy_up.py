@@ -80,19 +80,16 @@ class receptionist:
 
     def _done_cb(self, status, result):
         rospy.loginfo("goal reached! ")
-        if(self.trans.transform.translation.z<-0.05 and (math.sqrt(math.pow(self.trans.transform.translation.x,2) +math.pow(self.trans.transform.translation.y,2))<0.75)):
-            cmd_msg=Twist()
+        cmd_msg=Twist()
+        if(abs(self.trans.transform.translation.y)<0.1):
+            print("right position")
+            
+        elif(self.trans.transform.translation.y<0.2 or self.trans.transform.translation.y>-0.2):
+            cmd_msg.angular.z=self.trans.transform.translation.z
             self.cmd_pub.publish(cmd_msg)
-            self.cancel()
-            if(abs(self.trans.transform.translation.y)<0.1):
-                print("right position")
-                
-            elif(self.trans.transform.translation.y<0.2 or self.trans.transform.translation.y>-0.2):
-                cmd_msg.angular.z=self.trans.transform.translation.z
-                self.cmd_pub.publish(cmd_msg)
-                rospy.sleep(0.5)
-                self.cmd_pub.publish(Twist())
-                print("try to arrive the right position")
+            rospy.sleep(0.5)
+            self.cmd_pub.publish(Twist())
+            print("try to arrive the right position")
                 
             self.arrive_object=1
 
@@ -132,6 +129,7 @@ class receptionist:
     def cancel(self):
         self.move_base.cancel_goal()
         self.move_base.cancel_all_goals()
+        print("cancel the goal")
         return True
     def goto(self, p):
         global xc, yc, zc
@@ -150,6 +148,7 @@ class receptionist:
         goal.target_pose.pose.orientation.w = q[3]
         self.move_base.send_goal(goal, self._done_cb, self._active_cb, self._feedback_cb)
         result = self.move_base.wait_for_result(rospy.Duration(60))
+        print(result)
         if not result:
             self.move_base.cancel_goal()
             rospy.loginfo("Timed out achieving goal")
@@ -182,7 +181,7 @@ class receptionist:
             self.goto([1,3,0])
             print("hhh")
 
-            if(self.arrive_object):
+            if(self.find_object):
                 data = None
                 while data is None:
                     try:
@@ -195,7 +194,7 @@ class receptionist:
             self.find_object=0
             self.goto([0,0,0])
 
-            if(self.arrive_object):
+            if(self.find_object):
                 data = None
                 print("??????????//")
                 while data is None:
