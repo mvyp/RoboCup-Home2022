@@ -80,16 +80,18 @@ class receptionist:
 
     def _done_cb(self, status, result):
         rospy.loginfo("goal reached! ")
-        if(trans.transform.translation.z<-0.05 and (math.sqrt(math.pow(trans.transform.translation.x,2) +math.pow(trans.transform.translation.y,2))<0.75)):
+        if(self.trans.transform.translation.z<-0.05 and (math.sqrt(math.pow(self.trans.transform.translation.x,2) +math.pow(self.trans.transform.translation.y,2))<0.75)):
             cmd_msg=Twist()
             self.cmd_pub.publish(cmd_msg)
             self.cancel()
-            if(abs(trans.transform.translation.y)<0.1):
+            if(abs(self.trans.transform.translation.y)<0.1):
                 print("right position")
                 
-            elif(trans.transform.translation.y<0.2 or trans.transform.translation.y>-0.2):
-                cmd_msg.angular.z=trans.transform.translation.z
+            elif(self.trans.transform.translation.y<0.2 or self.trans.transform.translation.y>-0.2):
+                cmd_msg.angular.z=self.trans.transform.translation.z
                 self.cmd_pub.publish(cmd_msg)
+                rospy.sleep(0.5)
+                self.cmd_pub.publish(Twist())
                 print("try to arrive the right position")
                 
             self.arrive_object=1
@@ -100,24 +102,24 @@ class receptionist:
     def _feedback_cb(self, feedback):
         for i in self.object_list:
             try:
-                trans = self.tfBuffer.lookup_transform("base_link", i, rospy.Time())
-                if(trans.transform.translation.z<-0.05 and not self.find_object):
+                self.trans = self.tfBuffer.lookup_transform("base_link", i, rospy.Time())
+                if(self.trans.transform.translation.z<-0.05 and not self.find_object):
                     self.cancel()
                     self.find_object=True
                     print("find the {}".format(i))
                     angle=to_euler_angles(feedback.base_position.pose.orientation.w,feedback.base_position.pose.orientation.x,feedback.base_position.pose.orientation.y,feedback.base_position.pose.orientation.z)
                     object_positon = self.tfBuffer.lookup_transform("map", i, rospy.Time())
-                    self.goto([object_positon.transform.translation.x,object_positon.transform.translation.y,angle+math.atan2(trans.transform.translation.y,trans.transform.translation.x)])
+                    self.goto([object_positon.transform.translation.x,object_positon.transform.translation.y,angle+math.atan2(self.trans.transform.translation.y,self.trans.transform.translation.x)])
                     break
-                if(trans.transform.translation.z<-0.05 and (math.sqrt(math.pow(trans.transform.translation.x,2) +math.pow(trans.transform.translation.y,2))<0.75)):
+                if(self.trans.transform.translation.z<-0.05 and (math.sqrt(math.pow(self.trans.transform.translation.x,2) +math.pow(self.trans.transform.translation.y,2))<0.75)):
                     cmd_msg=Twist()
                     self.cmd_pub.publish(cmd_msg)
                     self.cancel()
-                    if(abs(trans.transform.translation.y)<0.1):
+                    if(abs(self.trans.transform.translation.y)<0.1):
                         print("right position")
                         break
-                    elif(trans.transform.translation.y<0.2 or trans.transform.translation.y>-0.2):
-                        cmd_msg.angular.z=trans.transform.translation.z
+                    elif(self.trans.transform.translation.y<0.2 or self.trans.transform.translation.y>-0.2):
+                        cmd_msg.angular.z=self.trans.transform.translation.z
                         self.cmd_pub.publish(cmd_msg)
                         print("try to arrive the right position")
                         break
