@@ -170,8 +170,12 @@ class receptionist:
         #（第一个客人）
         # 机械臂开门
         self.pub_cmd.publish("Open_door")
-        rospy.sleep(60)
-        #TODO wait
+        data = None
+        while data is None:
+            try:
+                data = rospy.wait_for_message("test", String, timeout=1)
+            except:
+                pass
         
         text_to_speech("hi, what is your name and your favorate drink ?")
         #  ~<the answer>

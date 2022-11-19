@@ -25,9 +25,7 @@ class receptionist:
         self.find_object= False
         self.arrive_object= False
         #subsciber
-        self.tf_listener = tf.TransformListener()
-        self.arm_listener = rospy.Subscriber("topic", String)
-        
+        self.tf_listener = tf.TransformListener()        
 
 
         #publisher
@@ -108,6 +106,7 @@ class receptionist:
                     elif(trans.transform.translation.y<0.2 or trans.transform.translation.y>-0.2):
                         cmd_msg.angular.z=trans.transform.translation.z
                         self.cmd_pub.publish(cmd_msg)
+                        print("try to arrive the right position")
                         break
                     #TODO
             except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
@@ -116,6 +115,7 @@ class receptionist:
 
 
     def cancel(self):
+        self.move_base.cancel_goal()
         self.move_base.cancel_all_goals()
         return True
     def goto(self, p):

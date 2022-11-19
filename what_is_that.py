@@ -101,7 +101,7 @@ class Follower():
 
         rospy.loginfo("Ready to follow!")
         try:
-            _thread.start_new_thread( voice, ("Ready to follow! Please raise one of your arms and I will follow you",) )
+            _thread.start_new_thread( voice, ("Ready to follow! Please put your right hand on your left shoulder or put your left hand on your right shoulder and I will follow you",) )
             
         except:
             print("Error: unable to start thread")
@@ -111,13 +111,13 @@ class Follower():
     def set_cmd_vel(self, msg):
         if(msg!= MarkerArray()):
             # Check start position
-            #7: ELBOW_LEFT 8:WRIST_LEFT,18 12:SHOULDER_RIGHT 5: SHOULDER_LEFT
-            stop_2y=(msg.markers[15].pose.position.y +msg.markers[14].pose.position.y)/2 - msg.markers[26].pose.position.y
-            stop_1y=(msg.markers[8].pose.position.y +msg.markers[7].pose.position.y)/2 - msg.markers[26].pose.position.y
-            stop_2x=(msg.markers[15].pose.position.x +msg.markers[14].pose.position.x)/2 - msg.markers[26].pose.position.x
-            stop_1x=(msg.markers[8].pose.position.x +msg.markers[7].pose.position.x)/2 - msg.markers[26].pose.position.x
-            left_arm=abs(msg.markers[8].pose.position.x - msg.markers[12].pose.position.x)
-            right_arm=abs(msg.markers[15].pose.position.x - msg.markers[5].pose.position.x)
+            #5: SHOULDER_LEFT 7: WRIST_LEFT 8:HAND_LEFT 12:SHOULDER_RIGHT 14:WRIST_RIGHT 15:HAND_RIGHT 26:HEAD,
+            go_2y=abs((msg.markers[15].pose.position.y +msg.markers[14].pose.position.y)/2 - msg.markers[5].pose.position.y)
+            go_1y=abs((msg.markers[8].pose.position.y +msg.markers[7].pose.position.y)/2 - msg.markers[12].pose.position.y)
+            go_2x=abs((msg.markers[15].pose.position.x +msg.markers[14].pose.position.x)/2 - msg.markers[5].pose.position.x)
+            go_1x=abs((msg.markers[8].pose.position.x +msg.markers[7].pose.position.x)/2 - msg.markers[12].pose.position.x)
+            stop_left_arm=(msg.markers[8].pose.position.y - msg.markers[26].pose.position.y)
+            stop_right_arm=(msg.markers[15].pose.position.y - msg.markers[26].pose.position.y)
             # print(right_arm)
             # print(left_arm)
             #print(stop_1)
@@ -125,7 +125,7 @@ class Follower():
             #print(msg.markers[1].pose.position.x)
             #print("--------------------------")
             
-            if right_arm<-0.25 or left_arm<-0.25:
+            if (go_1y<0.07 and go_1x<0.07) or (go_2y<0.07 and go_2x <0.07):
                 self.robotstate=True
                 self.trigger=True
                 now_time=time.time()
@@ -134,7 +134,7 @@ class Follower():
                     self.pub_pan_tilt.publish(self.pan_tilt_up)
                     voice ("Moving.")
             
-            if (stop_1y<0.07 and stop_1x) or (stop_2y<0.07 and stop_2y <0.07):
+            if stop_right_arm<-0.25 or stop_left_arm<-0.25:
                 
                 self.tmp_point_thing = []
                 self.robotstate=False
