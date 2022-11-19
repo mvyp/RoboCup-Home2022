@@ -12,14 +12,10 @@ import _thread
 import azure.cognitiveservices.speech as speechsdk
 from std_msgs.msg import String
 from sensor_msgs.msg import Image
-
+from yolov5_ros_msgs.msg import BoundingBoxes
 import cv2 as cv
-import requests
-from io import BytesIO
-import base64
-import PIL.Image
-from cv_bridge import CvBridge, CvBridgeError
 
+from cv_bridge import CvBridge, CvBridgeError
 
 class receptionist:
 
@@ -160,7 +156,39 @@ class receptionist:
                 rospy.loginfo("reach goal %s succeeded!"%p)
         return True
 
-
+    def empty_seat(self):
+        seat1= 1
+        seat2= 1
+        seat3= 1
+        angular=Twist()
+        data = rospy.wait_for_message("test", BoundingBoxes, timeout=1)
+        if(data[0].num==1):
+            if(data[0].xmin>1100 and data[0].xmax<2167):
+                angular.angular.z=-0.2
+                self.cmd_vel_pub.pub(angular)
+                rospy.sleep(1)
+                self.cmd_vel_pub.pub(Twist())
+        if(data[0].num==2):
+            for i in range(2):
+                if(data[i].xmin<1100):
+                    seat1=0
+                if(data[i].xmin>1100 and data[i].xmax<2167):
+                    seat2=0
+                if(data[i].xmax>2167):
+                    seat3=0
+            if(seat1):
+                angular.angular.z=-0.2
+                self.cmd_vel_pub.pub(angular)
+                rospy.sleep(1)
+                self.cmd_vel_pub.pub(Twist())
+            if(seat3):
+                angular.angular.z=0.2
+                self.cmd_vel_pub.pub(angular)
+                rospy.sleep(1)
+                self.cmd_vel_pub.pub(Twist())
+            
+                
+                
     #main part
     def main(self):
         # say task begin
@@ -191,19 +219,19 @@ class receptionist:
         self.goto([0, 0, 0])
 
         # 到客厅 TODO
+        text_to_speech("Please stand on my right side.")
         text_to_speech(
-            "Please stand on my right side. And I will point to a seat you can take."
-        )
-       
+            "dear {} ,This is {} , and favorate drink is {}.dear {} ,This is {} , and favorate drink is {}."
+            .format(self.guest1_name, self.master_name, self.master_drink,
+                    self.master_name,self.guest1_name, self.guest1_drink))
+        text_to_speech(" I will point to a seat you can take.")
         # 转向空座位TODO 
 
         # 机械臂向前指   3s 收回
         self.pub_cmd.publish("Front")
-        #3s 收回
-        rospy.sleep(3)
+        text_to_speech("You can sit there.")
         self.pub_cmd.publish("Wait")
 
-        text_to_speech("You can sit there.")
 
         # （第二个人）
 

@@ -142,6 +142,8 @@ class receptionist:
             state = self.move_base.get_state()
             if state == GoalStatus.SUCCEEDED:
                 rospy.loginfo("reach goal %s succeeded!"%p)
+                text_to_speech("reach goal %s succeeded!"%p)
+
         return True
     
     # ----------Computer Vision--------------------------------------------------------------- 
@@ -172,6 +174,7 @@ class receptionist:
                         data = rospy.wait_for_message("test", String, timeout=1)
                     except:
                         pass
+                text_to_speech("grasp the object.")
 
             #second point
             self.find_object=0
