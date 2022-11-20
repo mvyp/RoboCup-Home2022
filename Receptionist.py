@@ -14,7 +14,7 @@ from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from yolov5_ros_msgs.msg import BoundingBoxes
 import cv2 as cv
-
+import math
 from cv_bridge import CvBridge, CvBridgeError
 
 class receptionist:
@@ -76,7 +76,8 @@ class receptionist:
 
         self.move_cmd = Twist()
         self.bridge_ros2cv = CvBridge()
-
+        self.door_position = [0,0,0]
+        self.sofa_position = [0,0,0]
 
 # ----------Navigation-------------------------------------------------------------------------
 
@@ -173,11 +174,10 @@ class receptionist:
                 self.cmd_vel_pub.publish(Twist())
         if(data.bounding_boxes[0].num==2):
             for i in range(2):
-                if(data.bounding_boxes[i].xmin<1100):
+                if(data.bounding_boxes[i].xmin<1000):
                     seat1=0
-                if(data.bounding_boxes[i].xmin>1100 and data.bounding_boxes[i].xmax<2167):
-                    seat2=0
-                if(data.bounding_boxes[i].xmax>2167):
+
+                if(data.bounding_boxes[i].xmax>2800):
                     seat3=0
             if(seat1):
                 angular.angular.z=-0.3
@@ -189,97 +189,126 @@ class receptionist:
                 self.cmd_vel_pub.publish(angular)
                 rospy.sleep(1)
                 self.cmd_vel_pub.publish(Twist())
+    def loc(self):
+
+        data = rospy.wait_for_message("pose", PoseWithCovarianceStamped, timeout=10)
+        x=data.pose.pose.position.x
+        y=data.pose.pose.position.y
+        z= data.pose.pose.orientation.z
+        w= data.pose.pose.orientation.w
+        cmd=Twist()
+        cmd.linear.x=self.door_position[0]-x
+        cmd.linear.y=self.door_position[1]-y
+       
+        rospy.sleep(1)
+        self.cmd_vel_pub.publish(cmd)
+        cmd1=Twist()
+        cmd1.angular.z = (self.door_position[2]-to_euler_angles(w,0,0,z))/math.pi
+        rospy.sleep(1)
+        self.cmd_vel_pub.publish(cmd1)
+        
             
                 
                 
     #main part
     def main(self):
-        # # say task begin
-        # _thread.start_new_thread(text_to_speech, ("task begin!", ))
-        # # 导航到门口
-        # self.goto([1.653, -0.451, -90])
-        # #（第一个客人）
-        # # 机械臂开门
-        # self.pub_cmd.publish("Open_door")
-        # data = None
-        # while data is None:
-        #     try:
-        #         data = rospy.wait_for_message("test", String, timeout=1)
-        #     except:
-        #         pass
-        
-        # text_to_speech("hi, what is your name and your favorate drink ?")
-        # #  ~<the answer>
-        # guest1_answer = speech_to_text()
-        # print(guest1_answer)
-        # self.guest1_name,self.guest1_drink= message_proc(guest1_answer)
-        # text_to_speech(
-        #     "So, your name is {},and your favorate drink is {}.".format(
-        #         self.guest1_name, self.guest1_drink))
-        # text_to_speech("follow me if possible, behind my body")
+        # say task begin
+        _thread.start_new_thread(text_to_speech, ("task begin!", ))
+        # 导航到门口
+        self.goto(self.door_position)
+        #（第一个客人）
+        # 机械臂开门
+        self.loc()
+        self.pub_cmd.publish("Open_door")
+        data = None
+        while data is None:
+            try:
+                data = rospy.wait_for_message("test", String, timeout=1)
+            except:
+                pass
 
-        # # 导航到客厅
-        # self.goto([0, 0, 0])
+        text_to_speech("hi, what is your name and your favorate drink ?")
+        #  ~<the answer>
+        guest1_answer = speech_to_text()
+        print(guest1_answer)
+        self.guest1_name,self.guest1_drink= message_proc(guest1_answer)
+        text_to_speech(
+            "So, your name is {},and your favorate drink is {}.".format(
+                self.guest1_name, self.guest1_drink))
+        text_to_speech("follow me if possible, behind my body")
 
-        # # 到客厅 TODO
-        # text_to_speech("Please stand on my right side.")
-        # text_to_speech(
-        #     "dear {} ,This is {} , and favorate drink is {}.dear {} ,This is {} , and favorate drink is {}."
-        #     .format(self.guest1_name, self.master_name, self.master_drink,
-        #             self.master_name,self.guest1_name, self.guest1_drink))
-        # text_to_speech(" I will point to a seat you can take.")
-        # # 转向空座位TODO 
+        # 导航到客厅
+        self.goto(self.sofa_position)
+
+        # 到客厅 TODO
+        text_to_speech("Please stand on my right side.")
+        text_to_speech(
+            "dear {} ,This is {} , and favorate drink is {}.dear {} ,This is {} , and favorate drink is {}."
+            .format(self.guest1_name, self.master_name, self.master_drink,
+                    self.master_name,self.guest1_name, self.guest1_drink))
+        text_to_speech(" I will point to a seat you can take.")
+        # 转向空座位TODO 
+
         self.empty_seat()
-        # # 机械臂向前指   3s 收回
-        # self.pub_cmd.publish("Front")
-        # text_to_speech("You can sit there.")
-        # self.pub_cmd.publish("Wait")
+        # 机械臂向前指   3s 收回
+        self.pub_cmd.publish("Front")
+        rospy.sleep(2)
+        text_to_speech("You can sit there.")
+        self.pub_cmd.publish("Wait")
 
 
-        # # （第二个人）
+        # （第二个人）
 
-        # # 导航到门口
-        # self.goto([0, 0, 0])
-        # # 机械臂开门
-        # self.pub_cmd.publish("Open_door")
-        # # 识别门口人的特征
+        # 导航到门口
+        self.goto(self.door_position)
+        self.loc()
+        # 机械臂开门
+        self.pub_cmd.publish("Open_door")
+        data = None
+        while data is None:
+            try:
+                data = rospy.wait_for_message("test", String, timeout=1)
+            except:
+                pass
 
-        # text_to_speech("hi, what is your name and your favorate drink ?")
-        # #  ~<the answer>
-        # guest2_answer = speech_to_text()
-        # self.guest2_name,self.guest2_drink= message_proc(guest2_answer)
-        # #process the answer TODO
-        # text_to_speech(
-        #     "So, your name is {},and your favorate drink is {}.".format(
-        #         self.guest2_name, self.guest2_drink))
-        # text_to_speech("follow me if possible, behind my body")
+        text_to_speech("hi, what is your name and your favorate drink ?")
+        #  ~<the answer>
+        guest2_answer = speech_to_text()
+        self.guest2_name,self.guest2_drink= message_proc(guest2_answer)
+        #process the answer TODO
+        text_to_speech(
+            "So, your name is {},and your favorate drink is {}.".format(
+                self.guest2_name, self.guest2_drink))
+        text_to_speech("follow me if possible, behind my body")
 
-        # # 导航到客厅
-        # self.goto(0, 0, 0)
+        # 导航到客厅
+        self.goto(self.sofa_position)
 
-        # text_to_speech("Please stand on my right side.")
-        # #转向右边
-        # text_to_speech(
-        #     "dear {} ,they are {} and {} , and their favorate drink are {} and{}."
-        #     .format(self.guest2_name, self.master_name, self.guest1_name,
-        #             self.master_drink, self.guest1_drink))
+        text_to_speech("Please stand on my right side.")
+        #转向右边
+        text_to_speech(
+            "dear {} ,they are {} and {} , and their favorate drink are {} and{}."
+            .format(self.guest2_name, self.master_name, self.guest1_name,
+                    self.master_drink, self.guest1_drink))
 
 
-        # text_to_speech(
-        #     "dear {} and {}  , this is {} , and favorate drink is {}.".
-        #     format(self.guest1_name, self.master_name, self.guest2_name,
-        #            self.guest2_drink))
+        text_to_speech(
+            "dear {} and {}  , this is {} , and favorate drink is {}.".
+            format(self.guest1_name, self.master_name, self.guest2_name,
+                   self.guest2_drink))
 
-        # text_to_speech(" I will point to a seat you can take.")
+        text_to_speech(" I will point to a seat you can take.")
 
-        # # 转向空座位
+        # 转向空座位
 
-        # # 机械臂向前指   3s 收回
-        # self.pub_cmd.publish("Front")
-        # #3s 收回
-        # rospy.sleep(3)
-        # self.pub_cmd.publish("Wait")
-        # text_to_speech("You can sit there.")
+        # 机械臂向前指   3s 收回
+        self.empty_seat()
+        # 机械臂向前指   3s 收回
+        self.pub_cmd.publish("Front")
+        rospy.sleep(2)
+        text_to_speech("You can sit there.")
+        self.pub_cmd.publish("Wait")
+        text_to_speech("Done.")
 
 
 # ----------Voice-------------------------------------------------------------------------
@@ -338,7 +367,13 @@ def message_proc(string):
     drink =drink.strip('.')
     print("drink is "+drink)
     return name,drink
+def to_euler_angles(w, x, y, z):
+    """w、x、y、z to euler angles"""
+    y = math.atan2(2*(w*z+x*y),1-2*(z*z+y*y))
 
+    yaw = y*180/math.pi
+
+    return yaw
 if __name__ == "__main__":
     #Voice init
     speech_key, service_region = "80c72f7522eb4105aecaa9766104bd53", "eastus"

@@ -164,15 +164,7 @@ class receptionist:
                 text_to_speech("reach goal %s succeeded!"%p)
 
         return True
-    
-    # ----------Computer Vision--------------------------------------------------------------- 
-    
-    
-    
-    
-    
-    
-    
+
     #main part
     def main(self):
         # say task begin
@@ -201,7 +193,6 @@ class receptionist:
 
             if(self.find_object):
                 data = None
-                print("??????????//")
                 while data is None:
                     try:
                         data = rospy.wait_for_message("test", String, timeout=1)
@@ -300,6 +291,6 @@ if __name__ == "__main__":
 
 
     receptionist_buct.main()
-    print("s")
+    print("finish")
 
     rospy.spin()
