@@ -167,7 +167,7 @@ class receptionist:
             print(data.bounding_boxes[0].xmax)
             print("--------------------")
             if(data.bounding_boxes[0].xmin>1100 and data.bounding_boxes[0].xmax<2300):
-                angular.angular.z=-0.2
+                angular.angular.z=-0.3
                 self.cmd_vel_pub.publish(angular)
                 rospy.sleep(1)
                 self.cmd_vel_pub.publish(Twist())
@@ -180,12 +180,12 @@ class receptionist:
                 if(data.bounding_boxes[i].xmax>2167):
                     seat3=0
             if(seat1):
-                angular.angular.z=-0.2
+                angular.angular.z=-0.3
                 self.cmd_vel_pub.publish(angular)
                 rospy.sleep(1)
                 self.cmd_vel_pub.publish(Twist())
             if(seat3):
-                angular.angular.z=0.2
+                angular.angular.z=0.3
                 self.cmd_vel_pub.publish(angular)
                 rospy.sleep(1)
                 self.cmd_vel_pub.publish(Twist())

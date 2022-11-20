@@ -80,18 +80,21 @@ class receptionist:
 
     def _done_cb(self, status, result):
         rospy.loginfo("goal reached! ")
-        cmd_msg=Twist()
-        if(abs(self.trans.transform.translation.y)<0.1):
-            print("right position")
-            
-        elif(self.trans.transform.translation.y<0.2 or self.trans.transform.translation.y>-0.2):
-            cmd_msg.angular.z=self.trans.transform.translation.z
+        if(self.trans.transform.translation.z<-0.05 and (math.sqrt(math.pow(self.trans.transform.translation.x,2) +math.pow(self.trans.transform.translation.y,2))<0.75)):
+            cmd_msg=Twist()
             self.cmd_pub.publish(cmd_msg)
-            rospy.sleep(0.5)
-            self.cmd_pub.publish(Twist())
-            print("try to arrive the right position")
+       
+            if(abs(self.trans.transform.translation.x<0.1)):
+                print("right position")
                 
-            self.arrive_object=1
+            elif(self.trans.transform.translation.x<-0.1 or self.trans.transform.translation.x>0.1):
+                cmd_msg.angular.z=self.trans.transform.translation.x
+                self.cmd_pub.publish(cmd_msg)
+                rospy.sleep(0.5)
+                self.cmd_pub.publish(Twist())
+                print("try to arrive the right position")
+                    
+                self.arrive_object=1
 
     def _active_cb(self):
         rospy.loginfo("navigation has be actived")
@@ -112,12 +115,14 @@ class receptionist:
                     cmd_msg=Twist()
                     self.cmd_pub.publish(cmd_msg)
                     self.cancel()
-                    if(abs(self.trans.transform.translation.y)<0.1):
+                    if(abs(self.trans.transform.translation.x)<0.1):
                         print("right position")
                         break
-                    elif(self.trans.transform.translation.y<0.2 or self.trans.transform.translation.y>-0.2):
-                        cmd_msg.angular.z=self.trans.transform.translation.z
+                    elif(self.trans.transform.translation.x>0.2 or self.trans.transform.translation.x<-0.2):
+                        cmd_msg.angular.z=self.trans.transform.translation.x
                         self.cmd_pub.publish(cmd_msg)
+                        rospy.sleep(0.5)
+                        self.cmd_pub.publish(Twist())
                         print("try to arrive the right position")
                         break
                     self.arrive_object=1
