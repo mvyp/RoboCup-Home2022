@@ -20,23 +20,12 @@ from cv_bridge import CvBridge, CvBridgeError
 class receptionist:
 
     def __init__(self):
-        #Kinova
-        self.pub_cmd = rospy.Publisher('Command', String, queue_size=1)
-
-        #voice_init
-        speech_key, service_region = "80c72f7522eb4105aecaa9766104bd53", "eastus"
-        speech_config = speechsdk.SpeechConfig(subscription=speech_key,
-                                               region=service_region)
-        speech_recognizer = speechsdk.SpeechRecognizer(
-            speech_config=speech_config)
-        speech_config.speech_synthesis_voice_name = "en-US-AriaNeural"
-        speech_synthesizer = speechsdk.SpeechSynthesizer(
-            speech_config=speech_config)
-
+        
         #subsciber
         # self.image_sub = rospy.Subscriber("/rgb/image_raw", Image, self.img_callback, queue_size=1)
 
         #publisher
+        self.pub_cmd = rospy.Publisher('Command', String, queue_size=1)
         self.cmd_vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=5)
         self.set_pose_pub = rospy.Publisher('/initialpose',
                                             PoseWithCovarianceStamped,
@@ -76,9 +65,9 @@ class receptionist:
 
         self.move_cmd = Twist()
         self.bridge_ros2cv = CvBridge()
-        self.door_position = [0,0,0]
-        self.sofa_position = [0,0,0]
-
+        self.door_position = [2.256,-1.1097,0]
+        self.sofa_position = [0.73,2.71,180]
+                                
 # ----------Navigation-------------------------------------------------------------------------
 
     def get_pos(self):
@@ -162,7 +151,10 @@ class receptionist:
         seat2= 1
         seat3= 1
         angular=Twist()
-        data = rospy.wait_for_message("/yolov5/BoundingBoxes", BoundingBoxes, timeout=1)
+        try:
+            data = rospy.wait_for_message("/yolov5/BoundingBoxes", BoundingBoxes, timeout=1)
+        except:
+            pass
         if(data.bounding_boxes[0].num==1):
             print(data.bounding_boxes[0].xmin)
             print(data.bounding_boxes[0].xmax)
@@ -199,13 +191,14 @@ class receptionist:
         cmd=Twist()
         cmd.linear.x=self.door_position[0]-x
         cmd.linear.y=self.door_position[1]-y
-       
-        rospy.sleep(1)
         self.cmd_vel_pub.publish(cmd)
-        cmd1=Twist()
-        cmd1.angular.z = (self.door_position[2]-to_euler_angles(w,0,0,z))/math.pi
         rospy.sleep(1)
+        cmd1=Twist()
+        #cmd1.angular.z = (self.door_position[2]-to_euler_angles(w,0,0,z))/math.pi
         self.cmd_vel_pub.publish(cmd1)
+        print(to_euler_angles(w,0,0,z))
+        rospy.sleep(1)
+        self.cmd_vel_pub.publish(Twist())
         
             
                 
@@ -220,12 +213,12 @@ class receptionist:
         # 机械臂开门
         self.loc()
         self.pub_cmd.publish("Open_door")
-        data = None
-        while data is None:
-            try:
-                data = rospy.wait_for_message("test", String, timeout=1)
-            except:
-                pass
+        # data = None
+        # while data is None:
+        #     try:
+        #         data = rospy.wait_for_message("test", String, timeout=1)
+        #     except:
+        #         pass
 
         text_to_speech("hi, what is your name and your favorate drink ?")
         #  ~<the answer>
@@ -312,8 +305,8 @@ class receptionist:
 
 
 # ----------Voice-------------------------------------------------------------------------
-def text_to_speech(self, text):
-    result = self.speech_synthesizer.speak_text_async(text).get()
+def text_to_speech(text):
+    result = speech_synthesizer.speak_text_async(text).get()
 
     if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
         print("Speech synthesized to speaker for text [{}]".format(text))
@@ -328,8 +321,8 @@ def text_to_speech(self, text):
         print("Did you update the subscription info?")
 
 
-def speech_to_text(self):
-    result = self.speech_recognizer.recognize_once()
+def speech_to_text():
+    result = speech_recognizer.recognize_once()
 
     # Checks result.
     if result.reason == speechsdk.ResultReason.RecognizedSpeech:
@@ -382,6 +375,8 @@ if __name__ == "__main__":
     speech_config.speech_synthesis_voice_name = "en-US-AriaNeural"
     speech_synthesizer = speechsdk.SpeechSynthesizer(
         speech_config=speech_config)
+    speech_recognizer = speechsdk.SpeechRecognizer(
+            speech_config=speech_config)
     #ROS
     rospy.init_node('receptionist', anonymous=True)
 
