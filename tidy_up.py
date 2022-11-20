@@ -35,6 +35,10 @@ class receptionist:
         self.move_base = actionlib.SimpleActionClient("move_base", MoveBaseAction)
         self.move_base.wait_for_server(rospy.Duration(30))
         self.cmd_pub = rospy.Publisher('/cmd_vel', Twist,queue_size=10)
+        self.string_pub = rospy.Publisher('/pick_place/target', String,queue_size=10)
+        self.message_pub = rospy.Publisher('/pick_place/message', String,queue_size=10)
+
+
 
         try:
             self.tf_listener.waitForTransform('/map', '/base_link', rospy.Time(), rospy.Duration(1.0))
@@ -176,28 +180,39 @@ class receptionist:
         if(goroom == 'kitchen'):
             #first point
             self.goto([1,3,0])
-            print("hhh")
+            
 
             if(self.find_object):
+                self.string_pub.publish("bottle")
                 data = None
-                while data is None:
+                text_to_speech("grasp the object.")
+                while data == "Finish":
                     try:
-                        data = rospy.wait_for_message("test", String, timeout=1)
+                        data = rospy.wait_for_message("/pick_place/message", String, timeout=1)
                     except:
                         pass
-                text_to_speech("grasp the object.")
+
+                
+                self.goto([1,3,0])
+                self.message_pub.publish("Open")
+                text_to_speech("place the object.")
+                rospy.sleep(5)
+
+                
 
             #second point
             self.find_object=0
             self.goto([0,0,0])
 
             if(self.find_object):
+                self.string_pub.publish("bottle")
                 data = None
-                while data is None:
+                while data == "Finish":
                     try:
-                        data = rospy.wait_for_message("test", String, timeout=1)
+                        data = rospy.wait_for_message("/pick_place/message", String, timeout=1)
                     except:
                         pass
+                text_to_speech("grasp the object.")
 
             # #third point
             # self.find_object=0
