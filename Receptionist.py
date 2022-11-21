@@ -67,6 +67,12 @@ class receptionist:
         self.bridge_ros2cv = CvBridge()
         self.door_position = [2.256,-1.1097,0]
         self.sofa_position = [0.73,2.71,180]
+        self.postion_x =0
+        self.postion_y =0
+        self.orientation_x =0
+        self.orientation_y =0
+        self.orientation_z =0
+        self.orientation_w =0
                                 
 # ----------Navigation-------------------------------------------------------------------------
 
@@ -112,8 +118,12 @@ class receptionist:
         rospy.loginfo("navigation has be actived")
 
     def _feedback_cb(self, feedback):
-        #rospy.loginfo("[Navi] navigation feedback\r\n%s"%feedback)
-        pass
+        self.postion_x =feedback.base_position.pose.position.x
+        self.postion_y =feedback.base_position.pose.position.y
+        self.orientation_x =feedback.base_position.pose.orientation.x
+        self.orientation_y =feedback.base_position.pose.orientation.y
+        self.orientation_z =feedback.base_position.pose.orientation.z
+        self.orientation_w =feedback.base_position.pose.orientation.w
 
     def cancel(self):
         self.move_base.cancel_all_goals()
@@ -183,20 +193,16 @@ class receptionist:
                 self.cmd_vel_pub.publish(Twist())
     def loc(self):
 
-        data = rospy.wait_for_message("pose", PoseWithCovarianceStamped, timeout=10)
-        x=data.pose.pose.position.x
-        y=data.pose.pose.position.y
-        z= data.pose.pose.orientation.z
-        w= data.pose.pose.orientation.w
         cmd=Twist()
-        cmd.linear.x=self.door_position[0]-x
-        cmd.linear.y=self.door_position[1]-y
+        cmd.linear.x=self.door_position[0]-self.postion_x
+        cmd.linear.y=self.door_position[1]-self.postion_y
         self.cmd_vel_pub.publish(cmd)
         rospy.sleep(1)
         cmd1=Twist()
-        #cmd1.angular.z = (self.door_position[2]-to_euler_angles(w,0,0,z))/math.pi
+        angular=self.door_position[2]-to_euler_angles(self.orientation_w,self.orientation_x,self.orientation_y,self.orientation_z)
+        #cmd1.angular.z = (angular)/math.pi
         self.cmd_vel_pub.publish(cmd1)
-        print(to_euler_angles(w,0,0,z))
+        print(angular)
         rospy.sleep(1)
         self.cmd_vel_pub.publish(Twist())
         
@@ -213,18 +219,26 @@ class receptionist:
         # 机械臂开门
         self.loc()
         self.pub_cmd.publish("Open_door")
-        # data = None
-        # while data is None:
-        #     try:
-        #         data = rospy.wait_for_message("test", String, timeout=1)
-        #     except:
-        #         pass
+        data = None
+        while data is None:
+            try:
+                data = rospy.wait_for_message("test", String, timeout=1)
+            except:
+                pass
 
         text_to_speech("hi, what is your name and your favorate drink ?")
-        #  ~<the answer>
-        guest1_answer = speech_to_text()
-        print(guest1_answer)
-        self.guest1_name,self.guest1_drink= message_proc(guest1_answer)
+
+        
+        try:
+            guest1_answer = speech_to_text()
+            self.guest1_name,self.guest1_drink= message_proc(guest1_answer)
+        except:
+            text_to_speech("Please say it again.")
+            guest1_answer = speech_to_text()
+            self.guest1_name,self.guest1_drink= message_proc(guest1_answer)
+
+            
+            
         text_to_speech(
             "So, your name is {},and your favorate drink is {}.".format(
                 self.guest1_name, self.guest1_drink))
@@ -265,13 +279,18 @@ class receptionist:
                 pass
 
         text_to_speech("hi, what is your name and your favorate drink ?")
-        #  ~<the answer>
-        guest2_answer = speech_to_text()
-        self.guest2_name,self.guest2_drink= message_proc(guest2_answer)
-        #process the answer TODO
+        try:
+            guest2_answer = speech_to_text()
+            self.guest2_name,self.guest2_drink= message_proc(guest2_answer)
+        except:
+            text_to_speech("Please say it again.")
+            guest2_answer = speech_to_text()
+            self.guest2_name,self.guest2_drink= message_proc(guest2_answer)
+            
         text_to_speech(
             "So, your name is {},and your favorate drink is {}.".format(
                 self.guest2_name, self.guest2_drink))
+        
         text_to_speech("follow me if possible, behind my body")
 
         # 导航到客厅
@@ -340,6 +359,7 @@ def speech_to_text():
     return result.text
 def message_proc(string):
     #string="My name is Hua and my favoriate drink is orange juice."
+
     more_string=1
     #print(string.split())
     list=string.split()

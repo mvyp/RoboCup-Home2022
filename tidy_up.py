@@ -94,7 +94,7 @@ class receptionist:
             elif(self.trans.transform.translation.x<-0.1 or self.trans.transform.translation.x>0.1):
                 cmd_msg.angular.z=self.trans.transform.translation.x
                 self.cmd_pub.publish(cmd_msg)
-                rospy.sleep(0.5)
+                rospy.sleep(1)
                 self.cmd_pub.publish(Twist())
                 print("try to arrive the right position")
                     
