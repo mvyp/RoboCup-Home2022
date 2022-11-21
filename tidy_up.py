@@ -24,6 +24,8 @@ class receptionist:
         self.object_list=['water','bottle']
         self.find_object= False
         self.arrive_object= False
+        self.bin_positon= [0,0,0]
+        self.object = "unknown"
         #subsciber
         self.tf_listener = tf.TransformListener()        
 
@@ -168,67 +170,84 @@ class receptionist:
                 text_to_speech("reach goal %s succeeded!"%p)
 
         return True
+    def kitchen(self):
+        #First point
+        self.goto([1,3,0])  
 
+        if(self.find_object):
+            self.string_pub.publish("{}".format(self.object))
+            data = None
+            text_to_speech("grasp the object.")
+            while data == "Finish":
+                try:
+                    data = rospy.wait_for_message("/pick_place/message", String, timeout=1)
+                except:
+                    pass
+
+            self.goto(self.bin_positon)
+            self.message_pub.publish("Open")
+            text_to_speech("place the object.")
+            rospy.sleep(5)
+
+        #Second point
+        self.find_object=0
+        self.goto([0,0,0])
+
+        if(self.find_object):
+            self.string_pub.publish("{}".format(self.object))
+            data = None
+            text_to_speech("grasp the object.")
+            while data == "Finish":
+                try:
+                    data = rospy.wait_for_message("/pick_place/message", String, timeout=1)
+                except:
+                    pass
+            
+            self.goto(self.bin_positon)
+            self.message_pub.publish("Open")
+            text_to_speech("place the object.")
+            
+        #Third point
+        self.find_object=0
+        self.goto([0,0,0])
+
+        if(self.find_object):
+            self.string_pub.publish("{}".format(self.object))
+            data = None
+            text_to_speech("place the object.")
+            while data == "Finish":
+                try:
+                    data = rospy.wait_for_message("/pick_place/message", String, timeout=1)
+                except:
+                    pass
+            
+            self.goto(self.bin_positon)
+            self.message_pub.publish("Open")
+            text_to_speech("grasp the object.")
+    
     #main part
     def main(self):
-        # say task begin
+        
         text_to_speech("hi, which room should I clean ?")
-        #  ~<the answer>
-        answer = speech_to_text()
-        goroom = message_proc(answer)
-        print(goroom)
+        try:
+            answer = speech_to_text()
+            goroom = message_proc(answer)
+            print(goroom)
+        except:
+            text_to_speech("Please say it again?")
+            answer = speech_to_text()
+            goroom = message_proc(answer)
+            print(goroom)
+        
         if(goroom == 'kitchen'):
-            #first point
-            self.goto([1,3,0])
+            self.kitchen()
+        # elif(goroom == 'kitchen'):
+        #     self.kitchen()
+        # elif(goroom == 'kitchen'):
+        #     self.kitchen()
+        # elif(goroom == 'kitchen'):
+        #     self.kitchen()
             
-
-            if(self.find_object):
-                self.string_pub.publish("bottle")
-                data = None
-                text_to_speech("grasp the object.")
-                while data == "Finish":
-                    try:
-                        data = rospy.wait_for_message("/pick_place/message", String, timeout=1)
-                    except:
-                        pass
-
-                
-                self.goto([1,3,0])
-                self.message_pub.publish("Open")
-                text_to_speech("place the object.")
-                rospy.sleep(5)
-
-                
-
-            #second point
-            self.find_object=0
-            self.goto([0,0,0])
-
-            if(self.find_object):
-                self.string_pub.publish("bottle")
-                data = None
-                while data == "Finish":
-                    try:
-                        data = rospy.wait_for_message("/pick_place/message", String, timeout=1)
-                    except:
-                        pass
-                text_to_speech("grasp the object.")
-
-            # #third point
-            # self.find_object=0
-            # result = self.goto([0,2,0])
-
-            # if(self.arrive_object):
-            #     data = None
-            #     while data is None:
-            #         try:
-            #             data = rospy.wait_for_message("test", String, timeout=1)
-            #         except:
-            #             pass
-
-            # if(result):
-            #     exit()
-
 
         
 # ----------Voice-------------------------------------------------------------------------
