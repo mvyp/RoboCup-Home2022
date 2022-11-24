@@ -24,7 +24,7 @@ class receptionist:
         self.object_list=['water','bottle']
         self.find_object= False
         self.arrive_object= False
-        self.bin_positon= [0,0,0]
+        self.bin_positon= [-0.1,-0.36,180]
         self.object = "unknown"
         #subsciber
         self.tf_listener = tf.TransformListener()        
@@ -170,9 +170,30 @@ class receptionist:
                 text_to_speech("reach goal %s succeeded!"%p)
 
         return True
-    def kitchen(self):
+
+    #main part
+    def main(self):
+        
+        text_to_speech("hi, which room should I clean ?")
+        try:
+            answer = speech_to_text()
+            goroom = message_proc(answer)
+            print(goroom)
+        except:
+            text_to_speech("Please say it again?")
+            answer = speech_to_text()
+            goroom = message_proc(answer)
+            print(goroom)
+        
         #First point
-        self.goto([1,3,0])  
+        if(goroom == 'kitchen'):
+            self.goto([2.74,-0.89,0])
+        elif(goroom == 'bedroom'):
+            self.goto([3.28,2.38,90])
+        elif(goroom == 'living room'):
+            self.goto([-3.0,0,180])
+        elif(goroom == 'washroom'):
+            self.goto([-2,-1.63,-180])
 
         if(self.find_object):
             self.string_pub.publish("{}".format(self.object))
@@ -191,7 +212,14 @@ class receptionist:
 
         #Second point
         self.find_object=0
-        self.goto([0,0,0])
+        if(goroom == 'kitchen'):
+            self.goto([1.62,-4.85,90])
+        elif(goroom == 'bedroom'):
+            self.goto([1.2,2.64,90])
+        elif(goroom == 'living room'):
+            self.goto([-1.0,0,0])
+        elif(goroom == 'washroom'):
+            self.goto([-2.51,-4.63,-135])
 
         if(self.find_object):
             self.string_pub.publish("{}".format(self.object))
@@ -209,7 +237,14 @@ class receptionist:
             
         #Third point
         self.find_object=0
-        self.goto([0,0,0])
+        if(goroom == 'kitchen'):
+            self.goto([0.4,-2.77,0])
+        elif(goroom == 'bedroom'):
+            self.goto([2.2,1.6,180])
+        elif(goroom == 'living room'):
+            self.goto([-1.42,3.82,0])
+        elif(goroom == 'washroom'):
+            self.goto([-1.15,-4.32,-90])
 
         if(self.find_object):
             self.string_pub.publish("{}".format(self.object))
@@ -224,29 +259,7 @@ class receptionist:
             self.goto(self.bin_positon)
             self.message_pub.publish("Open")
             text_to_speech("grasp the object.")
-    
-    #main part
-    def main(self):
-        
-        text_to_speech("hi, which room should I clean ?")
-        try:
-            answer = speech_to_text()
-            goroom = message_proc(answer)
-            print(goroom)
-        except:
-            text_to_speech("Please say it again?")
-            answer = speech_to_text()
-            goroom = message_proc(answer)
-            print(goroom)
-        
-        if(goroom == 'kitchen'):
-            self.kitchen()
-        # elif(goroom == 'kitchen'):
-        #     self.kitchen()
-        # elif(goroom == 'kitchen'):
-        #     self.kitchen()
-        # elif(goroom == 'kitchen'):
-        #     self.kitchen()
+
             
 
         
@@ -284,7 +297,7 @@ def message_proc(string):
 
     for i in list:
         if(i=="living"):
-            room = 'living room.'
+            room = 'living room'
             break
         elif(i=="bedroom."):
             room = 'bedroom'
@@ -292,8 +305,8 @@ def message_proc(string):
         elif(i=="kitchen."):
             room = 'kitchen'
             break
-        elif(i=="TODO."):
-            room = 'TODO'
+        elif(i=="washroom."):
+            room = 'washroom'
             break
 
     return room

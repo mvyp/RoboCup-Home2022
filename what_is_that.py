@@ -40,7 +40,9 @@ class Follower():
         self.play_threshold = 5    # 进过 play_threshold 次判断都是同意指向,才进行播报
         self.time_threshold = 3    # 至少间隔  几秒 才可播放一次
         self.temp_t = 0
-        
+        self.feature_dict={
+            'Biscuit': 'black'
+        }
 
         # Set the shutdown function (stop the robot)
         rospy.on_shutdown(self.shutdown)
@@ -93,7 +95,7 @@ class Follower():
         self.image_sub = rospy.Subscriber("/rgb/image_raw", Image, self.img_callback, queue_size=1)
         
         self.pan_tilt_down=PanTiltCmdDeg()       
-        self.pan_tilt_down.pitch=35.0
+        self.pan_tilt_down.pitch=40.0
         self.pan_tilt_down.speed=20
         self.pan_tilt_up=PanTiltCmdDeg()
         self.pan_tilt_up.pitch=0
@@ -307,7 +309,7 @@ class Follower():
                     # print(round(temp_now - temp_t, 3))
 
                     if temp_now  > self.time_threshold:
-                        voice("this is {}".format(point_thing))
+                        voice("this is {} and it is{}".format(point_thing,self.feature_dict[point_thing]))
                 else:
                     self.tmp_point_thing.pop()  #  不能的话就 丢弃末尾一个
 

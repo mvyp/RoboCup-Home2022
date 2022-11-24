@@ -73,7 +73,7 @@ class receptionist:
 
         self.move_cmd = Twist()
         self.bridge_ros2cv = CvBridge()
-        self.door_position = [3.506,-5.643,5]
+        self.door_position = [3.506,-5.63,5]
         self.sofa_position = [-2.1,1,45]
         self.detect_position = [-2.1,1,0]
 
@@ -176,7 +176,7 @@ class receptionist:
             data = rospy.wait_for_message("/yolov5/BoundingBoxes", BoundingBoxes, timeout=1)
         except:
             return
-        if(data.bounding_boxes[0].xmax<1800 and data.bounding_boxes[0].xmin>1800):
+        if(data.bounding_boxes[0].xmax<1000 and data.bounding_boxes[0].xmin>2800):
             return
 
         linear.linear.y=0.3
@@ -190,7 +190,7 @@ class receptionist:
             data = rospy.wait_for_message("/yolov5/BoundingBoxes", BoundingBoxes, timeout=1)
         except:
             return
-        if(data.bounding_boxes[0].xmax<1800 and data.bounding_boxes[0].xmin>1800):
+        if(data.bounding_boxes[0].xmax<1000 and data.bounding_boxes[0].xmin>2800):
             return
 
         linear.linear.y=0.3
@@ -202,7 +202,7 @@ class receptionist:
             data = rospy.wait_for_message("/yolov5/BoundingBoxes", BoundingBoxes, timeout=1)
         except:
             return
-        if(data.bounding_boxes[0].xmax<1800 and data.bounding_boxes[0].xmin>1800):
+        if(data.bounding_boxes[0].xmax<1000 and data.bounding_boxes[0].xmin>2800):
             return
         
         linear.linear.y=-0.3
@@ -260,107 +260,24 @@ class receptionist:
     def main(self):
         # say task begin
         _thread.start_new_thread(text_to_speech, ("task begin!", ))
-
+        while(1):
         # 导航到门口
-        self.goto(self.door_position)
+            self.goto(self.door_position)
 
-        #（第一个客人）
-        # 机械臂开门
-        self.loc()
-        self.pub_cmd.publish("Open_door")
-        data = None
-        while data is None:
-            try:
-                data = rospy.wait_for_message("test", String, timeout=1)
-            except:
-                pass
-
-        text_to_speech("hi, what is your name and your favorate drink ?")
-
-        
-        try:
-            guest1_answer = speech_to_text()
-            self.guest1_name,self.guest1_drink= message_proc(guest1_answer)
-        except:
-            text_to_speech("Please say it again.")
-            guest1_answer = speech_to_text()
-            self.guest1_name,self.guest1_drink= message_proc(guest1_answer)
-
-            
-            
-        text_to_speech(
-            "So, your name is {},and your favorate drink is {}.".format(
-                self.guest1_name, self.guest1_drink))
-        _thread.start_new_thread(text_to_speech, ("Follow me if possible, behind my body", ))
-
-        # 导航到客厅
-        self.goto(self.sofa_position)
+            #（第一个客人）
+            # 机械臂开门
+            self.loc()
+            self.pub_cmd.publish("Open_door")
+            data = None
+            while data is None:
+                try:
+                    data = rospy.wait_for_message("test", String, timeout=1)
+                except:
+                    pass
+            self.goto([0,0,0])
 
 
-        # 到客厅 
-        text_to_speech(
-            "dear {} ,This is {} , and favorate drink is {}.dear {} ,This is {} , and favorate drink is {}."
-            .format(self.guest1_name, self.master_name, self.master_drink,
-                    self.master_name,self.guest1_name, self.guest1_drink))
-        _thread.start_new_thread(text_to_speech, ("I will point to a seat you can take.", ))
-        self.goto(self.detect_position)
 
-        # 转向空座位
-        self.empty_seat()
-        text_to_speech("You can sit there.")
-
-
-        # （第二个人）
-        # 导航到门口
-        self.goto(self.door_position)
-        self.loc()
-        # 机械臂开门
-        self.pub_cmd.publish("Open_door")
-        data = None
-        while data is None:
-            try:
-                data = rospy.wait_for_message("open_door/message", String, timeout=1)
-            except:
-                pass
-
-        text_to_speech("hi, what is your name and your favorate drink ?")
-        try:
-            guest2_answer = speech_to_text()
-            self.guest2_name,self.guest2_drink= message_proc(guest2_answer)
-        except:
-            text_to_speech("Please say it again.")
-            guest2_answer = speech_to_text()
-            self.guest2_name,self.guest2_drink= message_proc(guest2_answer)
-            
-        text_to_speech(
-            "So, your name is {},and your favorate drink is {}.".format(
-                self.guest2_name, self.guest2_drink))
-        
-        text_to_speech("follow me if possible, behind my body")
-
-        # 导航到客厅
-        self.goto(self.sofa_position)
-
-        #介绍
-        text_to_speech(
-            "dear {} ,they are {} and {} , and their favorate drink are {} and{}."
-            .format(self.guest2_name, self.master_name, self.guest1_name,
-                    self.master_drink, self.guest1_drink))
-
-
-        text_to_speech(
-            "dear {} and {}  , this is {} , and favorate drink is {}.".
-            format(self.guest1_name, self.master_name, self.guest2_name,
-                   self.guest2_drink))
-
-        _thread.start_new_thread(text_to_speech, ("I will point to a seat you can take.", ))
-        self.goto(self.detect_position)
-
-        # 转向空座位
-        self.empty_seat()
-        text_to_speech("You can sit there.")
-        rospy.sleep(1)
-        text_to_speech("Done.")
 
 
 # ----------Voice-------------------------------------------------------------------------
