@@ -17,6 +17,7 @@ import cv2 as cv
 import math
 from cv_bridge import CvBridge, CvBridgeError
 from pan_tilt_msgs.msg import PanTiltCmdDeg
+import dynamic_reconfigure.client
 
 
 class receptionist:
@@ -47,7 +48,6 @@ class receptionist:
         self.pan_tilt_down=PanTiltCmdDeg()       
         self.pan_tilt_down.pitch=40.0
         self.pan_tilt_down.speed=20
-        self.pub_pan_tilt.publish(self.pan_tilt_down)
 
         #variable TODO
         self.master_name = 'jack'
@@ -73,9 +73,9 @@ class receptionist:
 
         self.move_cmd = Twist()
         self.bridge_ros2cv = CvBridge()
-        self.door_position = [3.506,-5.643,5]
+        self.door_position = [3.506,-5.653,5]
         self.sofa_position = [-2.1,1,45]
-        self.detect_position = [-2.1,1,0]
+        self.detect_position = [-2.1,1,-5]
 
         self.postion_x =0
         self.postion_y =0
@@ -83,7 +83,8 @@ class receptionist:
         self.orientation_y =0
         self.orientation_z =0
         self.orientation_w =0
-                                
+        self.client = dynamic_reconfigure.client.Client("/move_base/DWAPlannerROS/")
+            
 # ----------Navigation-------------------------------------------------------------------------
 
     def get_pos(self):
@@ -130,8 +131,6 @@ class receptionist:
     def _feedback_cb(self, feedback):
         self.postion_x =feedback.base_position.pose.position.x
         self.postion_y =feedback.base_position.pose.position.y
-        print (self.postion_x)
-        print(self.postion_y)
         self.orientation_x =feedback.base_position.pose.orientation.x
         self.orientation_y =feedback.base_position.pose.orientation.y
         self.orientation_z =feedback.base_position.pose.orientation.z
@@ -172,43 +171,70 @@ class receptionist:
         
 
         linear=Twist()
+        has_people=0
         try:
             data = rospy.wait_for_message("/yolov5/BoundingBoxes", BoundingBoxes, timeout=1)
         except:
-            return
-        if(data.bounding_boxes[0].xmax<1800 and data.bounding_boxes[0].xmin>1800):
-            return
+            print("no people")
+            return 0
+        print(data)
+        print("---------------")
+        try:
+            for i in range(data.bounding_boxes[0].num):
+                if((  data.bounding_boxes[i].xmax<2800 )and  ( data.bounding_boxes[i].xmin>1000)and data.bounding_boxes[i].ymax>1000):
+                    has_people=1
+        except:
+            pass
+        if (not has_people):
+                return 0
+                
+        has_people=0
 
-        linear.linear.y=0.3
-        self.cmd_vel_pub.publish(linear)
-        rospy.sleep(4)
-        self.cmd_vel_pub.publish(Twist())
-        rospy.sleep(4)
+
+
+        self.goto([-2.1,2.1,-5])
 
 
         try:
-            data = rospy.wait_for_message("/yolov5/BoundingBoxes", BoundingBoxes, timeout=1)
+            data2 = rospy.wait_for_message("/yolov5/BoundingBoxes", BoundingBoxes, timeout=1)
         except:
-            return
-        if(data.bounding_boxes[0].xmax<1800 and data.bounding_boxes[0].xmin>1800):
-            return
+            return 0
+        print("data2")
+        print(data2)
+        print("---------------")
+        try:
+            for i in range(data2.bounding_boxes[0].num):
+                if((  data2.bounding_boxes[i].xmax<2700 )and  ( data2.bounding_boxes[i].xmin>1500) and data2.bounding_boxes[i].ymax>1000):
+                    has_people=1
+            if (not has_people):
+                    return 0
+        except:
+            pass
+        has_people=0
 
-        linear.linear.y=0.3
-        self.cmd_vel_pub.publish(linear)
-        rospy.sleep(4)
-        self.cmd_vel_pub.publish(Twist())
+
+
+        self.goto([-2.1,3.23,-5])
+
 
         try:
-            data = rospy.wait_for_message("/yolov5/BoundingBoxes", BoundingBoxes, timeout=1)
+            data3 = rospy.wait_for_message("/yolov5/BoundingBoxes", BoundingBoxes, timeout=1)
         except:
-            return
-        if(data.bounding_boxes[0].xmax<1800 and data.bounding_boxes[0].xmin>1800):
-            return
+            return 0
+        print(data3)
+        print("---------------")
+        try:
+            for i in range(data3.bounding_boxes[0].num):
+                if((  data3.bounding_boxes[i].xmax<2500 )and  ( data3.bounding_boxes[i].xmin>1500)and data3.bounding_boxes[i].ymax>1000):
+                    has_people=1
+            if (not has_people):
+                    return 0
+        except:
+            pass
+        has_people=0
         
-        linear.linear.y=-0.3
-        self.cmd_vel_pub.publish(linear)
-        rospy.sleep(6)
-        self.cmd_vel_pub.publish(Twist())
+        self.goto([-2.1,1.49,-5])
+
         return
         
         # if(data.bounding_boxes[0].num==1):
@@ -249,18 +275,25 @@ class receptionist:
         angular=self.door_position[2]-to_euler_angles(self.orientation_w,self.orientation_x,self.orientation_y,self.orientation_z)
         cmd1.angular.z = (angular)/180
         self.cmd_vel_pub.publish(cmd1)
-        print(angular)
         rospy.sleep(1)
         self.cmd_vel_pub.publish(Twist())
-        
+    def loc2(self):
+
+
+        cmd1=Twist()
+        angular=self.detect_position[2]-to_euler_angles(self.orientation_w,self.orientation_x,self.orientation_y,self.orientation_z)
+        cmd1.angular.z = (angular)/180
+        self.cmd_vel_pub.publish(cmd1)
+        rospy.sleep(1)
+        self.cmd_vel_pub.publish(Twist())       
             
                 
                 
     #main part
     def main(self):
-        # say task begin
-        _thread.start_new_thread(text_to_speech, ("task begin!", ))
+        self.pub_pan_tilt.publish(self.pan_tilt_down)
 
+        _thread.start_new_thread(text_to_speech, ("task begin!", ))
         # 导航到门口
         self.goto(self.door_position)
 
@@ -268,12 +301,22 @@ class receptionist:
         # 机械臂开门
         self.loc()
         self.pub_cmd.publish("Open_door")
+
+
+
         data = None
         while data is None:
             try:
-                data = rospy.wait_for_message("test", String, timeout=1)
+                data = rospy.wait_for_message("open_door/message", String, timeout=1)
             except:
                 pass
+
+
+        back=Twist()
+        back.linear.x=-0.2
+        self.cmd_vel_pub.publish(back)
+        rospy.sleep(1)
+        self.cmd_vel_pub.publish(Twist())
 
         text_to_speech("hi, what is your name and your favorate drink ?")
 
@@ -288,9 +331,6 @@ class receptionist:
 
             
             
-        text_to_speech(
-            "So, your name is {},and your favorate drink is {}.".format(
-                self.guest1_name, self.guest1_drink))
         _thread.start_new_thread(text_to_speech, ("Follow me if possible, behind my body", ))
 
         # 导航到客厅
@@ -299,17 +339,16 @@ class receptionist:
 
         # 到客厅 
         text_to_speech(
-            "dear {} ,This is {} , and favorate drink is {}.dear {} ,This is {} , and favorate drink is {}."
+            "dear {} ,that is {} , and favorate drink is {}, dear {} ,This is {} , and favorate drink is {}."
             .format(self.guest1_name, self.master_name, self.master_drink,
                     self.master_name,self.guest1_name, self.guest1_drink))
         _thread.start_new_thread(text_to_speech, ("I will point to a seat you can take.", ))
         self.goto(self.detect_position)
+        self.loc2()
 
         # 转向空座位
         self.empty_seat()
         text_to_speech("You can sit there.")
-
-
         # （第二个人）
         # 导航到门口
         self.goto(self.door_position)
@@ -322,6 +361,11 @@ class receptionist:
                 data = rospy.wait_for_message("open_door/message", String, timeout=1)
             except:
                 pass
+        back=Twist()
+        back.linear.x=-0.2
+        self.cmd_vel_pub.publish(back)
+        rospy.sleep(1)
+        self.cmd_vel_pub.publish(Twist())
 
         text_to_speech("hi, what is your name and your favorate drink ?")
         try:
@@ -331,12 +375,9 @@ class receptionist:
             text_to_speech("Please say it again.")
             guest2_answer = speech_to_text()
             self.guest2_name,self.guest2_drink= message_proc(guest2_answer)
-            
-        text_to_speech(
-            "So, your name is {},and your favorate drink is {}.".format(
-                self.guest2_name, self.guest2_drink))
-        
-        text_to_speech("follow me if possible, behind my body")
+
+        _thread.start_new_thread(text_to_speech, ("follow me if possible, behind my body.", ))
+
 
         # 导航到客厅
         self.goto(self.sofa_position)
@@ -355,11 +396,10 @@ class receptionist:
 
         _thread.start_new_thread(text_to_speech, ("I will point to a seat you can take.", ))
         self.goto(self.detect_position)
-
+        self.loc2()
         # 转向空座位
         self.empty_seat()
         text_to_speech("You can sit there.")
-        rospy.sleep(1)
         text_to_speech("Done.")
 
 

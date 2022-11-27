@@ -19,7 +19,8 @@ import subprocess
 from tool import *
 from yolo_tool import *
 
-things = ['apple', 'Bottle']
+things = ['Biscuit', 'Orange juice','Cola','Water', 'Lays','Bread','Cookie','Chip',
+        'Shampoo','Dishsoap','Handwash','Sprite']
 color_list = [(100, 0, 230), (100, 0, 0), (10,30, 20), (234, 34, 2), (23,4, 244), (24, 0, 23), (200, 100, 0), (250, 0, 0)]
 if len(things) > len(color_list):
     print('请补充颜色个数,目前识别物类别过多')
@@ -37,11 +38,22 @@ class Follower():
         self.time_count=time.time()
         self.bridge = CvBridge()
         self.tmp_point_thing = []   # 储存历史指向数据,用于判断是否播放语音
-        self.play_threshold = 5    # 进过 play_threshold 次判断都是同意指向,才进行播报
-        self.time_threshold = 3    # 至少间隔  几秒 才可播放一次
+        self.play_threshold = 10    # 进过 play_threshold 次判断都是同意指向,才进行播报
+        self.time_threshold = 10    # 至少间隔  几秒 才可播放一次
         self.temp_t = 0
         self.feature_dict={
-            'Biscuit': 'black'
+            'Biscuit': 'blue with white',
+            'Orange juice': "orange",
+            'Cola':"red with black",
+            'Water':"white with red",
+            'Lays':"yellow with green",
+            'Bread':"white",
+            'Cookie':"black with yellow",
+            'Chip':"brown",
+            'Shampoo':"blue",
+            'Dishsoap':"yellow",
+            'Handwash':"pink",
+            'Sprite':"green"
         }
 
         # Set the shutdown function (stop the robot)

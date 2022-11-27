@@ -1,5 +1,17 @@
 #! /usr/bin/env python3
 
+# Author: Nuha Nishat
+# Date: 1/30/20
+
+# Edited by Akshaya Agrawal
+# Date: 05/25/21
+'''
+    The Door is placed at (-0.24, 0, 0) position. Initially the Handle is located at
+    (-0.24,-0.36, 0) -> (x,y,z).
+    The path of the door is such that it follows a circle centered at (0,-0.5).
+    The Height of the handle from the base is 0.35
+'''
+
 import rospy
 import actionlib
 import kinova_msgs.msg
@@ -14,7 +26,6 @@ import geometry_msgs.msg
 from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import JointState
 import tf, math
-import tf2_ros
 import tf.transformations
 import pdb
 import moveit_commander
@@ -28,27 +39,26 @@ from moveit_msgs.msg import RobotState, PlanningScene, PlanningSceneComponents, 
     AllowedCollisionMatrix
 from moveit_msgs.srv import GetPlanningScene, ApplyPlanningScene
 import numpy as np
+import math
 import copy
 from tf.transformations import quaternion_from_euler
-from actionlib_msgs.msg import *
-from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
-from nav_msgs.msg import Path
-from geometry_msgs.msg import PoseWithCovarianceStamped
-from tf_conversions import transformations
 
-bin = [-0.61, -1.2, -180]
+# move_group_python_interface_tutorial was used as reference
+DL = 0.6
+RPY = 0.35
+RPX = 0.17
+# 0.15
 
 
 class MoveRobot():
 
     def __init__(self):
-        self.tfBuffer = tf2_ros.Buffer()
-        self.listener = tf2_ros.TransformListener(self.tfBuffer)
         # Initialize moveit commander and ros node for moveit
 
         # To read from redirected ROS Topic
         joint_state_topic = ['joint_states:=/j2s7s300_driver/out/joint_state']
         moveit_commander.roscpp_initialize(joint_state_topic)
+        rospy.init_node('move-kinova', anonymous=False)
         moveit_commander.roscpp_initialize(sys.argv)
 
         # Define robot using RobotCommander. Provided robot info such as
@@ -63,8 +73,8 @@ class MoveRobot():
         self.move_group = moveit_commander.MoveGroupCommander("arm")
         self.move_gripper = moveit_commander.MoveGroupCommander("gripper")
 
-        self.move_group.set_goal_position_tolerance(0.1)
-        self.move_group.set_goal_orientation_tolerance(0.1)
+        self.move_group.set_goal_position_tolerance(0.01)
+        self.move_group.set_goal_orientation_tolerance(0.01)
         # Set the precision of the robot
         self.client = actionlib.SimpleActionClient(
             '/j2s7s300_driver/pose_action/tool_pose',
@@ -84,127 +94,22 @@ class MoveRobot():
                                               ApplyPlanningScene)
         self.get_scene = rospy.ServiceProxy('/get_planning_scene',
                                             GetPlanningScene)
-        self.move_group.allow_replanning(1)
         rospy.sleep(2)
 
-        self.set_pose_pub = rospy.Publisher('/initialpose',
-                                            PoseWithCovarianceStamped,
-                                            queue_size=5)
-        self.move_base = actionlib.SimpleActionClient("move_base",
-                                                      MoveBaseAction)
-        self.move_base.wait_for_server(rospy.Duration(60))
-        self.tf_listener = tf.TransformListener()
-        try:
-            self.tf_listener.waitForTransform('/map',
-                                              '/base_link', rospy.Time(),
-                                              rospy.Duration(1.0))
-        except (tf.Exception, tf.ConnectivityException, tf.LookupException):
-            pass
+        # To see the trajectory
+        self.disp = moveit_msgs.msg.DisplayTrajectory()
 
-        self.object_list = [
-            'Biscuit', 'Orange juice', 'Cola', 'Water', 'Lays', 'Bread',
-            'Cookie', 'Chip', 'Shampoo', 'Dishsoap', 'Handwash', 'Sprite',
-            'Biscuit0', 'Orange juice0', 'Cola0', 'Water0', 'Lays0', 'Bread0',
-            'Cookie0', 'Chip0', 'Shampoo0', 'Dishsoap0', 'Handwash0',
-            'Sprite0', 'bottle'
-        ]
-        self.target_list = []
+        self.disp.trajectory_start = self.robot.get_current_state()
 
-    def get_position(self):
-        navi.target_list = []
-        flag = 0
-        for i in self.object_list:
-            try:
-                self.trans = self.tfBuffer.lookup_transform(
-                    "j2s7s300_link_base", i, rospy.Time())
-                if (self.trans.transform.translation.z > 0
-                        and abs(self.trans.transform.translation.y) < 0.5
-                        and abs(self.trans.transform.translation.x) < 1):
+        self.rate = rospy.Rate(10)
 
-                    self.target_list = [
-                        self.trans.transform.translation.x,
-                        self.trans.transform.translation.y,
-                        self.trans.transform.translation.z
-                    ]
-                    return 1
-            except (tf2_ros.LookupException, tf2_ros.ConnectivityException,
-                    tf2_ros.ExtrapolationException):
-                flag += flag
-                if (flag == len(self.object_list)):
-                    return 0
-                pass
+        self.move_group.allow_replanning(1)
+        rospy.Subscriber('Command', String, self.callback)
+        self.pub = rospy.Publisher('open_door/message', String, queue_size=1)
+        rospy.spin()
 
-    def set_pose(self, p):
-        if self.move_base is None:
-            return False
-
-        x, y, th = p
-
-        pose = PoseWithCovarianceStamped()
-        pose.header.stamp = rospy.Time.now()
-        pose.header.frame_id = 'map'
-        pose.pose.pose.position.x = x
-        pose.pose.pose.position.y = y
-        q = transformations.quaternion_from_euler(0.0, 0.0, th / 180.0 * pi)
-        pose.pose.pose.orientation.x = q[0]
-        pose.pose.pose.orientation.y = q[1]
-        pose.pose.pose.orientation.z = q[2]
-        pose.pose.pose.orientation.w = q[3]
-
-        self.set_pose_pub.publish(pose)
-        return True
-
-    def _done_cb(self, status, result):
-        rospy.loginfo("goal reached! ")
-
-    def _active_cb(self):
-        rospy.loginfo("navigation has be actived")
-
-    def _feedback_cb(self, feedback):
-        #rospy.loginfo("[Navi] navigation feedback\r\n%s"%feedback)
-        pass
-
-    def goto(self, p):
-        global xc, yc, zc
-        rospy.loginfo("[Navi] goto %s" % p)
-        x, y, th = p
-        goal = MoveBaseGoal()
-
-        goal.target_pose.header.frame_id = 'map'
-        goal.target_pose.header.stamp = rospy.Time.now()
-        goal.target_pose.pose.position.x = p[0]
-        goal.target_pose.pose.position.y = p[1]
-        q = transformations.quaternion_from_euler(0.0, 0.0, p[2] / 180.0 * pi)
-        goal.target_pose.pose.orientation.x = q[0]
-        goal.target_pose.pose.orientation.y = q[1]
-        goal.target_pose.pose.orientation.z = q[2]
-        goal.target_pose.pose.orientation.w = q[3]
-        self.move_base.send_goal(goal, self._done_cb, self._active_cb,
-                                 self._feedback_cb)
-        result = self.move_base.wait_for_result(rospy.Duration(60))
-        if not result:
-            self.move_base.cancel_goal()
-            rospy.loginfo("Timed out achieving goal")
-        else:
-            state = self.move_base.get_state()
-            if state == GoalStatus.SUCCEEDED:
-                rospy.loginfo("reach goal %s succeeded!" % p)
-        return True
-
-    def cancel(self):
-        self.move_base.cancel_all_goals()
-        return True
-
-    def throw(self):
-        self.cartesian_pose_client(
-            [0.44682925939559937, 0.0026565641164779663, 0.3062717616558075], [
-                -0.4489893615245819, -0.5633678436279297, -0.6183913946151733,
-                -0.31403425335884094
-            ], "j2s7s300_link_base")
-        rospy.sleep(1)
-        self.go_to_finger_state('Open')
-        rospy.sleep(0.1)
-        self.go_to_Wait()
+    def callback(self, data):
+        
 
     def gripper_client(self, finger_positions):
         """Send a gripper goal to the action server."""
@@ -237,7 +142,7 @@ class MoveRobot():
 
         self.client.send_goal(goal)
 
-        if self.client.wait_for_result(rospy.Duration(10.0)):
+        if self.client.wait_for_result(rospy.Duration(150.0)):
             return self.client.get_result()
         else:
             self.client.cancel_all_goals()
@@ -370,6 +275,14 @@ class MoveRobot():
         self.move_gripper.go(wait=True)
         rospy.sleep(2)
 
+    # def display_trajectory(self):
+    #     self.disp_pub = rospy.Publisher("/move_group/display_planned_path",
+    #                                     moveit_msgs.msg.DisplayTrajectory,
+    #                                     queue_size=20)
+    #     self.disp.trajectory.append(self.plan)
+    #     print(self.disp.trajectory)
+    #     self.disp_pub.publish(self.disp)
+
     def go_to_finger_state(self, cmd):
         if cmd == "Close":
             self.move_gripper.set_named_target("Close")
@@ -388,10 +301,6 @@ class MoveRobot():
         # self.move_gripper.stop()
         self.move_gripper.clear_pose_targets()
         rospy.sleep(1)
-
-    def go_to_Wait(self):
-        self.move_group.set_named_target('Wait')
-        self.move_group.go(wait=True)
 
     def go_to_finger_joint_state(self, joint_values):
         try:
@@ -424,15 +333,14 @@ class MoveRobot():
         except:
             return False
 
-    def main(self, target):
+    def main(self):
         self.add_object()
         # Set up path here
 
         # Pick planner
         self.set_planner_type("RRT")
-        # self.move_group.set_named_target('Home')
-        # self.move_group.go(wait=True)
-        self.homeRobot()
+        self.move_group.set_named_target('Home')
+        self.move_group.go(wait=True)
 
         ################ Pre-grasp ###################
 
@@ -441,23 +349,19 @@ class MoveRobot():
         self.go_to_finger_state('Open')
 
         rospy.loginfo('PRE-Grasp')
-        # self.go_to_goal(target)
-        self.cartesian_pose_client(
-            [target[0], target[1], target[2]],
-            [target[3], target[4], target[5], target[6]],
-            "/j2s7s300_link_base")
+        self.go_to_goal(target)
 
         rospy.sleep(1)
         ################# Grasp ###################
         rospy.loginfo('Grasp')
         cpose = self.move_group.get_current_pose().pose
-        for i in range(0, 6):
-            cpose.position.y -= i * 0.01
+        for i in range(0, 15):
+            cpose.position.y += i * 0.01
             self.cartesian_pose_client(
                 [cpose.position.x, cpose.position.y, cpose.position.z], [
                     cpose.orientation.x, cpose.orientation.y,
                     cpose.orientation.z, cpose.orientation.w
-                ], "world")
+                ], "/j2s7s300_link_base")
         rospy.sleep(2)
         ###### Get Waypoints ###########
 
@@ -505,41 +409,14 @@ class MoveRobot():
         #     rospy.loginfo("Path planning failed with only " + str(fraction) +
         #                   " success after " + str(maxtries) + " attempts.")
 
-        # self.go_to_finger_state('Close')
-        self.gripper_client([6800,6800,6800])
+        self.go_to_finger_state('Close')
         rospy.sleep(1)
         rospy.loginfo("Go home.")
-        # self.move_group.set_named_target('Home')
-        # self.move_group.go(wait=True)
+        self.move_group.set_named_target('Home')
+        self.move_group.go(wait=True)
 
         # self.homeRobot()
 
 
 if __name__ == '__main__':
-
-    rospy.init_node('navigation_demo', anonymous=True)
-    navi = MoveRobot()
-    rospy.sleep(5)
-    #goals = [[-2.8, 2.63, -180], [-2.78, 1.55, -180], [-1.42, 3.82, 0],[-1.37,1.6,40]]
-    #goals = [[1.79, 1.76, 180], [1.86, 2.29, 90], [2.64, 2.33, 90],[2, 2.46, 90], [2.67, 0.95, 0]]
-    #goals = [[2.79,-2.46,0],[2.45,-2.12,180],[2.45,-3.09,180],[0.53,-3.29,0],[0.53,-2.2,0]]
-    goals =[[-1.46,-2.82,0],[-1.64,-4.79,-90],[-2.2,-3.67,180]]
-
-    while True:
-        for goal in goals:
-            navi.goto(goal)
-            rospy.sleep(2)
-            navi.go_to_Wait()
-            navi.get_position()
-            print(navi.target_list)
-
-            if len(navi.target_list) != 0:
-                navi.main([
-                    navi.target_list[0] - 0.15, navi.target_list[1],
-                    navi.target_list[2], 0.46103304624557495, 0.5499841570854187,0.44626110792160034,0.5346184372901917
-
-                ])
-                navi.goto(bin)
-                navi.throw()
-            else:
-                print('false')
+    MoveRobot()
