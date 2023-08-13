@@ -1,4 +1,6 @@
 # teamwork
+
+seeker 包含底盘和视觉 real pick and place 包含机械臂
 base.py是一个任务流程大框架
 
 定义了导航和语音的基本函数
